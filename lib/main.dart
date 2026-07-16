@@ -866,6 +866,11 @@ class _MainScreenState extends State<MainScreen> {
   final FocusNode _supportFocusNode = FocusNode();
   Timer? _supportTimer;
   bool _showChatWindow = false;
+  List<dynamic> _sliderImages = [];
+  bool _sliderLoading = false;
+  PageController? _sliderPageController;
+  Timer? _sliderTimer;
+  int _sliderCurrentPage = 0;
 
   final String _baseUrl = 'https://turf.infoleena.com/api';
 
@@ -896,6 +901,58 @@ class _MainScreenState extends State<MainScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: const Color(0xFF10B981)),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _sliderPageController = PageController(initialPage: 0);
+    _fetchSliderImages();
+  }
+
+  void _startSliderTimer() {
+    _sliderTimer?.cancel();
+    if (_sliderImages.isEmpty) return;
+    _sliderTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (_sliderPageController != null && _sliderPageController!.hasClients) {
+        int nextPage = _sliderCurrentPage + 1;
+        if (nextPage >= _sliderImages.length) {
+          nextPage = 0;
+        }
+        _sliderPageController!.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _fetchSliderImages() async {
+    if (mounted) setState(() => _sliderLoading = true);
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/slider-images'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            _sliderImages = data;
+            _sliderLoading = false;
+          });
+          _startSliderTimer();
+        }
+      } else {
+        if (mounted) setState(() => _sliderLoading = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _sliderLoading = false);
+    }
   }
 
   // --- API OPERATIONS ---
@@ -1265,6 +1322,8 @@ class _MainScreenState extends State<MainScreen> {
     _supportMessageController.dispose();
     _supportScrollController.dispose();
     _supportFocusNode.dispose();
+    _sliderTimer?.cancel();
+    _sliderPageController?.dispose();
     super.dispose();
   }
 
@@ -1506,47 +1565,176 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Widget _buildSliderWidget() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (_sliderLoading && _sliderImages.isEmpty) {
+      return AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E2022) : Colors.grey[200],
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+
+    if (_sliderImages.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: PageView.builder(
+              controller: _sliderPageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _sliderCurrentPage = index;
+                });
+              },
+              itemCount: _sliderImages.length,
+              itemBuilder: (context, index) {
+                final slide = _sliderImages[index];
+                return GestureDetector(
+                  onTap: () {
+                    final linkUrl = slide['link_url'];
+                    if (linkUrl != null && linkUrl.toString().isNotEmpty) {
+                      // Custom click action
+                    }
+                  },
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        slide['image_url'],
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                            child: const Icon(Icons.broken_image_rounded, size: 48),
+                          );
+                        },
+                      ),
+                      // Gradient overlay
+                      if (slide['title'] != null && slide['title'].toString().isNotEmpty)
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.8),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Text(
+                              slide['title'],
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          // Indicators
+          Positioned(
+            bottom: 10,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_sliderImages.length, (index) {
+                final isActive = _sliderCurrentPage == index;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  height: 5,
+                  width: isActive ? 15 : 5,
+                  decoration: BoxDecoration(
+                    color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2.5),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // 1. HOME VIEW
   Widget _buildHomeView() {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
+          // Header Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.sports_soccer,
-                    size: 56,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
                   Text(
-                    'Hello, ${widget.userName}!',
+                    'Hello, ${widget.userName}! 👋',
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.secondary,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     'Ready to dominate the pitch today?',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[500],
                     ),
                   ),
                 ],
               ),
-            ),
+              CircleAvatar(
+                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                child: Text(
+                  widget.userName.isNotEmpty ? widget.userName.substring(0, 1).toUpperCase() : 'U',
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
+
+          // 16:9 Image Slider
+          _buildSliderWidget(),
+          const SizedBox(height: 24),
+
+          // Featured Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1567,6 +1755,8 @@ class _MainScreenState extends State<MainScreen> {
             ],
           ),
           const SizedBox(height: 12),
+
+          // Turf List
           Expanded(
             child: ListView(
               children: [
