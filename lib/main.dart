@@ -1093,7 +1093,7 @@ class _MainScreenState extends State<MainScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    // Search box
+                    // Search
                     TextField(
                       decoration: InputDecoration(
                         hintText: 'Search city...',
@@ -1106,10 +1106,19 @@ class _MainScreenState extends State<MainScreen> {
                         filled: true,
                         contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
                       ),
+                      textInputAction: TextInputAction.search,
                       onChanged: (val) {
                         setDialogState(() {
                           searchQuery = val;
                         });
+                      },
+                      onSubmitted: (val) {
+                        if (val.trim().isNotEmpty) {
+                          setState(() {
+                            _selectedCity = val.trim();
+                          });
+                          Navigator.pop(context);
+                        }
                       },
                     ),
                     const SizedBox(height: 16),
@@ -1160,28 +1169,49 @@ class _MainScreenState extends State<MainScreen> {
                       constraints: const BoxConstraints(maxHeight: 200),
                       child: SingleChildScrollView(
                         child: Column(
-                          children: filteredCities.map((city) {
-                            final isSelected = city == _selectedCity;
-                            return ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                              title: Text(
-                                city,
-                                style: TextStyle(
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected ? theme.colorScheme.primary : null,
+                          children: [
+                            if (searchQuery.trim().isNotEmpty &&
+                                !popularCities.any((c) => c.toLowerCase() == searchQuery.trim().toLowerCase()))
+                              ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                                leading: Icon(Icons.location_on, color: theme.colorScheme.primary, size: 20),
+                                title: Text(
+                                  'Select "${searchQuery.trim()}"',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.primary,
+                                  ),
                                 ),
+                                onTap: () {
+                                  setState(() {
+                                    _selectedCity = searchQuery.trim();
+                                  });
+                                  Navigator.pop(context);
+                                },
                               ),
-                              trailing: isSelected
-                                  ? Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 20)
-                                  : null,
-                              onTap: () {
-                                setState(() {
-                                  _selectedCity = city;
-                                });
-                                Navigator.pop(context);
-                              },
-                            );
-                          }).toList(),
+                            ...filteredCities.map((city) {
+                              final isSelected = city == _selectedCity;
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                                title: Text(
+                                  city,
+                                  style: TextStyle(
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected ? theme.colorScheme.primary : null,
+                                  ),
+                                ),
+                                trailing: isSelected
+                                    ? Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 20)
+                                    : null,
+                                onTap: () {
+                                  setState(() {
+                                    _selectedCity = city;
+                                  });
+                                  Navigator.pop(context);
+                                },
+                              );
+                            })
+                          ],
                         ),
                       ),
                     ),
