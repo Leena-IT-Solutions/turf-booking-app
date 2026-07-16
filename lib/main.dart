@@ -875,6 +875,8 @@ class _MainScreenState extends State<MainScreen> {
   int _sliderCurrentPage = 0;
   String _selectedCity = 'Mumbai';
   bool _isLocating = false;
+  double? _selectedLatitude;
+  double? _selectedLongitude;
 
   final String _baseUrl = 'https://turf.infoleena.com/api';
 
@@ -1040,6 +1042,8 @@ class _MainScreenState extends State<MainScreen> {
         if (mounted) {
           setState(() {
             _selectedCity = (city != null && city.isNotEmpty) ? city : 'Mumbai';
+            _selectedLatitude = position!.latitude;
+            _selectedLongitude = position.longitude;
             _isLocating = false;
           });
         }
@@ -1047,6 +1051,8 @@ class _MainScreenState extends State<MainScreen> {
         if (mounted) {
           setState(() {
             _selectedCity = 'Mumbai';
+            _selectedLatitude = position!.latitude;
+            _selectedLongitude = position.longitude;
             _isLocating = false;
           });
         }
@@ -1056,6 +1062,46 @@ class _MainScreenState extends State<MainScreen> {
       if (mounted) {
         setState(() {
           _selectedCity = 'Mumbai';
+          _isLocating = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _selectCityAndResolveCoordinates(String cityName) async {
+    if (mounted) {
+      setState(() {
+        _selectedCity = cityName;
+        _isLocating = true;
+      });
+    }
+    try {
+      List<Location> locations = await Geocoding().locationFromAddress(cityName);
+      if (locations.isNotEmpty) {
+        Location loc = locations[0];
+        debugPrint('Forward geocoding success for $cityName: Lat: ${loc.latitude}, Lng: ${loc.longitude}');
+        if (mounted) {
+          setState(() {
+            _selectedLatitude = loc.latitude;
+            _selectedLongitude = loc.longitude;
+            _isLocating = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _selectedLatitude = null;
+            _selectedLongitude = null;
+            _isLocating = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Forward geocoding error: $e');
+      if (mounted) {
+        setState(() {
+          _selectedLatitude = null;
+          _selectedLongitude = null;
           _isLocating = false;
         });
       }
@@ -1135,9 +1181,7 @@ class _MainScreenState extends State<MainScreen> {
                       },
                       onSubmitted: (val) {
                         if (val.trim().isNotEmpty) {
-                          setState(() {
-                            _selectedCity = val.trim();
-                          });
+                          _selectCityAndResolveCoordinates(val.trim());
                           Navigator.pop(context);
                         }
                       },
@@ -1204,9 +1248,7 @@ class _MainScreenState extends State<MainScreen> {
                                   ),
                                 ),
                                 onTap: () {
-                                  setState(() {
-                                    _selectedCity = searchQuery.trim();
-                                  });
+                                  _selectCityAndResolveCoordinates(searchQuery.trim());
                                   Navigator.pop(context);
                                 },
                               ),
@@ -1225,9 +1267,7 @@ class _MainScreenState extends State<MainScreen> {
                                     ? Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 20)
                                     : null,
                                 onTap: () {
-                                  setState(() {
-                                    _selectedCity = city;
-                                  });
+                                  _selectCityAndResolveCoordinates(city);
                                   Navigator.pop(context);
                                 },
                               );
@@ -2033,6 +2073,17 @@ class _MainScreenState extends State<MainScreen> {
                           ),
                         ],
                       ),
+                      if (!_isLocating && _selectedLatitude != null && _selectedLongitude != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '${_selectedLatitude!.toStringAsFixed(4)}°, ${_selectedLongitude!.toStringAsFixed(4)}°',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[500],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
