@@ -3246,11 +3246,63 @@ class MapPickerScreen extends StatefulWidget {
 
 class _MapPickerScreenState extends State<MapPickerScreen> {
   late LatLng _selectedLocation;
+  late final MapController _mapController;
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
 
   @override
   void initState() {
     super.initState();
     _selectedLocation = LatLng(widget.initialLatitude, widget.initialLongitude);
+    _mapController = MapController();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchAddress() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+
+    setState(() {
+      _isSearching = true;
+    });
+
+    try {
+      final locations = await Geocoding().locationFromAddress(query);
+      if (locations.isNotEmpty) {
+        final loc = locations.first;
+        final newLatLng = LatLng(loc.latitude, loc.longitude);
+        setState(() {
+          _selectedLocation = newLatLng;
+        });
+        _mapController.move(newLatLng, 15.0);
+      } else {
+        _showError('No locations found for "$query"');
+      }
+    } catch (e) {
+      _showError('Location not found. Please try a different query.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+        });
+      }
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -3272,6 +3324,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       body: Stack(
         children: [
           FlutterMap(
+            mapController: _mapController,
             options: MapOptions(
               initialCenter: _selectedLocation,
               initialZoom: 15.0,
@@ -3301,6 +3354,48 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                 ],
               ),
             ],
+          ),
+          Positioned(
+            top: 16,
+            left: 16,
+            right: 16,
+            child: Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                   children: [
+                     Expanded(
+                       child: TextField(
+                         controller: _searchController,
+                         decoration: const InputDecoration(
+                           hintText: 'Search location...',
+                           border: InputBorder.none,
+                         ),
+                         onSubmitted: (_) => _searchAddress(),
+                       ),
+                     ),
+                     if (_isSearching)
+                       const Padding(
+                         padding: EdgeInsets.symmetric(horizontal: 8.0),
+                         child: SizedBox(
+                           width: 20,
+                           height: 20,
+                           child: CircularProgressIndicator(strokeWidth: 2),
+                         ),
+                       )
+                     else
+                       IconButton(
+                         icon: const Icon(Icons.search),
+                         onPressed: _searchAddress,
+                       ),
+                   ],
+                ),
+              ),
+            ),
           ),
           Positioned(
             bottom: 24,
