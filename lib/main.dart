@@ -865,6 +865,7 @@ class _MainScreenState extends State<MainScreen> {
   final ScrollController _supportScrollController = ScrollController();
   final FocusNode _supportFocusNode = FocusNode();
   Timer? _supportTimer;
+  bool _showChatWindow = false;
 
   final String _baseUrl = 'https://turf.infoleena.com/api';
 
@@ -1369,8 +1370,8 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // If not on support tab, cancel support timer
-    if (_currentIndex != 2 && _supportTimer != null) {
+    // If not on support tab or chat window closed, cancel support timer
+    if ((_currentIndex != 2 || !_showChatWindow) && _supportTimer != null) {
       _supportTimer?.cancel();
       _supportTimer = null;
     }
@@ -1741,9 +1742,192 @@ class _MainScreenState extends State<MainScreen> {
   }
 
 
+  Widget _buildSupportInfoView() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 20),
+          // Icon illustration
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.support_agent,
+                size: 72,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'How can we help you?',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Get in touch with us using one of the options below.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: Colors.grey[500],
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // Email Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E2022) : Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(
+                    Icons.email_outlined,
+                    color: Colors.blue,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Email Support',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'support@turfbooking.com',
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Chat Card
+          InkWell(
+            onTap: () {
+              setState(() {
+                _showChatWindow = true;
+              });
+            },
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E2022) : Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      color: Colors.green,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Live Chat Support',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Chat with our team in real-time',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 16,
+                    color: Colors.grey[400],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSupportView() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+
+    if (!_showChatWindow) {
+      return _buildSupportInfoView();
+    }
 
     // Trigger timer/fetch
     if (_supportTimer == null && !_supportLoading) {
@@ -1757,6 +1941,39 @@ class _MainScreenState extends State<MainScreen> {
 
     return Column(
       children: [
+        // Back to Support Menu Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E2022) : Colors.white,
+            border: Border(
+              bottom: BorderSide(
+                color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  setState(() {
+                    _showChatWindow = false;
+                  });
+                  _supportTimer?.cancel();
+                  _supportTimer = null;
+                },
+              ),
+              const Text(
+                'Live Chat Support',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
         // Message Stream
         Expanded(
           child: _supportLoading
