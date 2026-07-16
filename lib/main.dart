@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   runApp(const MyApp());
@@ -1176,12 +1177,25 @@ class _MainScreenState extends State<MainScreen> {
                             ),
                             if (_selectedLatitude != null && _selectedLongitude != null) ...[
                               const SizedBox(height: 2),
-                              Text(
-                                '${_selectedLatitude!.toStringAsFixed(4)}°, ${_selectedLongitude!.toStringAsFixed(4)}°',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: theme.colorScheme.primary,
-                                  fontWeight: FontWeight.w500,
+                              InkWell(
+                                onTap: () {
+                                  final coords = '${_selectedLatitude!.toStringAsFixed(6)}, ${_selectedLongitude!.toStringAsFixed(6)}';
+                                  Clipboard.setData(ClipboardData(text: coords));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Copied coordinates: $coords'),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                                child: Text(
+                                  '${_selectedLatitude!.toStringAsFixed(4)}°, ${_selectedLongitude!.toStringAsFixed(4)}°',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: theme.colorScheme.primary,
+                                    fontWeight: FontWeight.w500,
+                                    decoration: TextDecoration.underline,
+                                  ),
                                 ),
                               ),
                             ],
