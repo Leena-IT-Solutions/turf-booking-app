@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -855,8 +856,14 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 0; // 0: Home, 1: Bookings, 2: Offers, 3: Support, 4: Profile
+  int _currentIndex = 0; // 0: Home, 1: Bookings, 2: Support, 3: Profile
   bool _profileLoading = false;
+
+  List<dynamic> _supportMessages = [];
+  bool _supportLoading = false;
+  final TextEditingController _supportMessageController = TextEditingController();
+  final ScrollController _supportScrollController = ScrollController();
+  Timer? _supportTimer;
 
   final String _baseUrl = 'https://turf.infoleena.com/api';
 
@@ -1250,6 +1257,83 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  @override
+  void dispose() {
+    _supportTimer?.cancel();
+    _supportMessageController.dispose();
+    _supportScrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    if (_supportScrollController.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _supportScrollController.animateTo(
+          _supportScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
+    }
+  }
+
+  Future<void> _fetchSupportMessages({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() => _supportLoading = true);
+    }
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/support/messages'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _supportMessages = data;
+          _supportLoading = false;
+        });
+        _scrollToBottom();
+      } else {
+        if (showLoading) setState(() => _supportLoading = false);
+      }
+    } catch (e) {
+      if (showLoading) setState(() => _supportLoading = false);
+    }
+  }
+
+  Future<void> _sendSupportMessage() async {
+    final text = _supportMessageController.text.trim();
+    if (text.isEmpty) return;
+
+    _supportMessageController.clear();
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/support/messages'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+        body: jsonEncode({'message': text}),
+      );
+
+      if (response.statusCode == 201) {
+        final newMsg = jsonDecode(response.body);
+        setState(() {
+          _supportMessages.add(newMsg);
+        });
+        _scrollToBottom();
+      } else {
+        _showError('Failed to send message.');
+      }
+    } catch (e) {
+      _showError('Network error. Failed to send message.');
+    }
+  }
+
   Widget _buildBody() {
     switch (_currentIndex) {
       case 0:
@@ -1282,6 +1366,12 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // If not on support tab, cancel support timer
+    if (_currentIndex != 2 && _supportTimer != null) {
+      _supportTimer?.cancel();
+      _supportTimer = null;
+    }
+
     final theme = Theme.of(context);
     final isSubPage = _currentIndex > 1;
 
@@ -1648,83 +1738,162 @@ class _MainScreenState extends State<MainScreen> {
   }
 
 
-  // 4. SUPPORT VIEW
   Widget _buildSupportView() {
     final theme = Theme.of(context);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'How can we help you today?',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+    final isDark = theme.brightness == Brightness.dark;
+
+    // Trigger timer/fetch
+    if (_supportTimer == null && !_supportLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchSupportMessages();
+        _supportTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+          _fetchSupportMessages(showLoading: false);
+        });
+      });
+    }
+
+    return Column(
+      children: [
+        // Message Stream
+        Expanded(
+          child: _supportLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _supportMessages.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              '💬',
+                              style: TextStyle(fontSize: 48),
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'No messages yet',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Send a message below to start a conversation with our support team.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _supportScrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _supportMessages.length,
+                      itemBuilder: (context, index) {
+                        final msg = _supportMessages[index];
+                        final isMe = msg['sender_id'] == msg['user_id'];
+                        final createdStr = msg['created_at'] != null 
+                            ? DateTime.parse(msg['created_at']).toLocal() 
+                            : DateTime.now();
+                        // Format time manually
+                        final timeStr = "${createdStr.hour.toString().padLeft(2, '0')}:${createdStr.minute.toString().padLeft(2, '0')}";
+
+                        return Align(
+                          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isMe
+                                  ? theme.colorScheme.primary
+                                  : isDark
+                                      ? const Color(0xFF1E2022)
+                                      : Colors.grey[200],
+                              borderRadius: BorderRadius.only(
+                                topLeft: const Radius.circular(20),
+                                topRight: const Radius.circular(20),
+                                bottomLeft: isMe ? const Radius.circular(20) : Radius.zero,
+                                bottomRight: isMe ? Radius.zero : const Radius.circular(20),
+                              ),
+                            ),
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width * 0.75,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  msg['message'] ?? '',
+                                  style: TextStyle(
+                                    color: isMe
+                                        ? Colors.white
+                                        : isDark
+                                            ? Colors.white
+                                            : Colors.black,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  timeStr,
+                                  style: TextStyle(
+                                    color: isMe
+                                        ? Colors.white70
+                                        : Colors.grey[500],
+                                    fontSize: 9,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+        ),
+        // Input Bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E2022) : Colors.white,
+            border: Border(
+              top: BorderSide(
+                color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+              ),
+            ),
           ),
-          const SizedBox(height: 16),
-          const Card(
-            child: ExpansionTile(
-              leading: Icon(Icons.question_answer),
-              title: Text('How do I cancel my turf booking?'),
+          child: SafeArea(
+            child: Row(
               children: [
-                Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text(
-                    'You can cancel your booking up to 6 hours before the match time via the "My Bookings" page. Refunds are processed within 2-3 business days.',
+                Expanded(
+                  child: TextField(
+                    controller: _supportMessageController,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Type a message...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                      fillColor: isDark ? const Color(0xFF0F1011) : Colors.grey[100],
+                      filled: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    ),
+                    onSubmitted: (_) => _sendSupportMessage(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                CircleAvatar(
+                  backgroundColor: theme.colorScheme.primary,
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white, size: 18),
+                    onPressed: _sendSupportMessage,
                   ),
                 ),
               ],
             ),
           ),
-          const Card(
-            child: ExpansionTile(
-              leading: Icon(Icons.payment),
-              title: Text('What payment methods are supported?'),
-              children: [
-                Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text(
-                    'We support Credit/Debit cards, UPI payments, NetBanking, and popular digital wallets.',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Send us a message',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 12),
-          const TextField(
-            decoration: InputDecoration(
-              labelText: 'Subject',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          const TextField(
-            maxLines: 4,
-            decoration: InputDecoration(
-              labelText: 'Describe your issue...',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Support ticket submitted successfully.')),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.colorScheme.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-            child: const Text('Submit Ticket'),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
