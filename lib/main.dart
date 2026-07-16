@@ -1003,11 +1003,30 @@ class _MainScreenState extends State<MainScreen> {
         return;
       }
 
-      Position position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.low,
-        ),
-      );
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.low,
+            timeLimit: Duration(seconds: 5),
+          ),
+        );
+      } catch (timeoutOrError) {
+        // Fallback to last known position if current position times out or errors
+        position = await Geolocator.getLastKnownPosition();
+      }
+
+      if (position == null) {
+        if (mounted) {
+          setState(() {
+            _selectedCity = 'Mumbai';
+            _isLocating = false;
+          });
+        }
+        return;
+      }
+
+      debugPrint('Geolocation success: Lat: ${position.latitude}, Lng: ${position.longitude}');
 
       List<Placemark> placemarks = await Geocoding().placemarkFromCoordinates(
         position.latitude,
@@ -1016,6 +1035,7 @@ class _MainScreenState extends State<MainScreen> {
 
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
+        debugPrint('Geocoding place details: locality=${place.locality}, subAdmin=${place.subAdministrativeArea}, admin=${place.administrativeArea}');
         String? city = place.locality ?? place.subAdministrativeArea ?? place.administrativeArea;
         if (mounted) {
           setState(() {
@@ -1032,6 +1052,7 @@ class _MainScreenState extends State<MainScreen> {
         }
       }
     } catch (e) {
+      debugPrint('Geolocation error occurred: $e');
       if (mounted) {
         setState(() {
           _selectedCity = 'Mumbai';
