@@ -83,17 +83,7 @@ class _MainScreenState extends State<MainScreen> {
     },
   ];
 
-  void _addBooking() {
-    setState(() {
-      _bookings.insert(0, {
-        'turf': 'Grand Field Turf (5v5)',
-        'date': 'August 02, 2026',
-        'time': '07:00 PM - 08:00 PM',
-        'status': 'Confirmed',
-        'price': '₹1,600',
-      });
-    });
-  }
+
 
   void _showLogoutDialog() {
     showDialog(
@@ -294,16 +284,6 @@ class _MainScreenState extends State<MainScreen> {
                   label: 'My Bookings',
                 ),
               ],
-            )
-          : null,
-      floatingActionButton: _currentIndex == 0
-          ? FloatingActionButton.extended(
-              onPressed: _addBooking,
-              tooltip: 'Book Turf',
-              backgroundColor: theme.colorScheme.primary,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add_task),
-              label: const Text('Book New Slot'),
             )
           : null,
     );
