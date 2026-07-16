@@ -6,8 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter/services.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 void main() {
   runApp(const MyApp());
 }
@@ -882,7 +882,6 @@ class _MainScreenState extends State<MainScreen> {
   List<Map<String, dynamic>> _suggestions = [];
   bool _suggestionsLoading = false;
   Timer? _debounceTimer;
-  static const _mapsChannel = MethodChannel('com.turfbooking.app/google_maps');
   String? _googleMapsApiKey;
 
   final String _baseUrl = 'https://turf.infoleena.com/api';
@@ -993,13 +992,6 @@ class _MainScreenState extends State<MainScreen> {
           setState(() {
             _googleMapsApiKey = apiKey;
           });
-          // Initialize key on iOS side
-          try {
-            await _mapsChannel.invokeMethod('initialize', {'apiKey': apiKey});
-            debugPrint('Google Maps iOS initialized successfully.');
-          } catch (e) {
-            debugPrint('Failed to initialize Google Maps on iOS: $e');
-          }
         }
       }
     } catch (e) {
@@ -3279,31 +3271,36 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       ),
       body: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: _selectedLocation,
-              zoom: 15.0,
+          FlutterMap(
+            options: MapOptions(
+              initialCenter: _selectedLocation,
+              initialZoom: 15.0,
+              onTap: (tapPosition, point) {
+                setState(() {
+                  _selectedLocation = point;
+                });
+              },
             ),
-            onMapCreated: (controller) {},
-            onTap: (LatLng location) {
-              setState(() {
-                _selectedLocation = location;
-              });
-            },
-            markers: {
-              Marker(
-                markerId: const MarkerId('selected_pin'),
-                position: _selectedLocation,
-                draggable: true,
-                onDragEnd: (LatLng newLocation) {
-                  setState(() {
-                    _selectedLocation = newLocation;
-                  });
-                },
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.infoleena.turf.booking',
               ),
-            },
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: _selectedLocation,
+                    width: 60,
+                    height: 60,
+                    child: const Icon(
+                      Icons.location_on,
+                      size: 45,
+                      color: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
           Positioned(
             bottom: 24,
