@@ -962,6 +962,14 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  String _capitalizeCity(String name) {
+    if (name.isEmpty) return name;
+    return name.split(' ').map((word) {
+      if (word.isEmpty) return word;
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
+  }
+
   Future<void> _getCurrentLocation() async {
     if (mounted) {
       setState(() {
@@ -1041,7 +1049,7 @@ class _MainScreenState extends State<MainScreen> {
         String? city = place.locality ?? place.subAdministrativeArea ?? place.administrativeArea;
         if (mounted) {
           setState(() {
-            _selectedCity = (city != null && city.isNotEmpty) ? city : 'Mumbai';
+            _selectedCity = _capitalizeCity((city != null && city.isNotEmpty) ? city : 'Mumbai');
             _selectedLatitude = position!.latitude;
             _selectedLongitude = position.longitude;
             _isLocating = false;
@@ -1071,7 +1079,7 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _selectCityAndResolveCoordinates(String cityName) async {
     if (mounted) {
       setState(() {
-        _selectedCity = cityName;
+        _selectedCity = _capitalizeCity(cityName);
         _isLocating = true;
       });
     }
@@ -2106,17 +2114,6 @@ class _MainScreenState extends State<MainScreen> {
                           ),
                         ],
                       ),
-                      if (!_isLocating && _selectedLatitude != null && _selectedLongitude != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          '${_selectedLatitude!.toStringAsFixed(4)}°, ${_selectedLongitude!.toStringAsFixed(4)}°',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey[500],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
