@@ -1257,10 +1257,8 @@ class _MainScreenState extends State<MainScreen> {
       case 1:
         return _buildBookingsView();
       case 2:
-        return _buildOffersView();
-      case 3:
         return _buildSupportView();
-      case 4:
+      case 3:
         return _buildProfileView();
       default:
         return _buildHomeView();
@@ -1274,10 +1272,8 @@ class _MainScreenState extends State<MainScreen> {
       case 1:
         return 'My Bookings';
       case 2:
-        return 'Offers & Deals';
-      case 3:
         return 'Customer Support';
-      case 4:
+      case 3:
         return 'My Profile';
       default:
         return 'Turf Booking';
@@ -1345,8 +1341,8 @@ class _MainScreenState extends State<MainScreen> {
                     },
                   ),
                   ListTile(
-                    leading: const Icon(Icons.local_offer),
-                    title: const Text('Offers'),
+                    leading: const Icon(Icons.support_agent),
+                    title: const Text('Support'),
                     selected: _currentIndex == 2,
                     onTap: () {
                       Navigator.pop(context);
@@ -1354,21 +1350,12 @@ class _MainScreenState extends State<MainScreen> {
                     },
                   ),
                   ListTile(
-                    leading: const Icon(Icons.support_agent),
-                    title: const Text('Support'),
+                    leading: const Icon(Icons.person),
+                    title: const Text('Profile'),
                     selected: _currentIndex == 3,
                     onTap: () {
                       Navigator.pop(context);
                       setState(() => _currentIndex = 3);
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.person),
-                    title: const Text('Profile'),
-                    selected: _currentIndex == 4,
-                    onTap: () {
-                      Navigator.pop(context);
-                      setState(() => _currentIndex = 4);
                     },
                   ),
                 ],
@@ -1660,82 +1647,6 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // 3. OFFERS VIEW
-  Widget _buildOffersView() {
-    final theme = Theme.of(context);
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        _buildOfferCard(
-          title: 'Monsoon Special Deal',
-          desc: 'Get flat 20% off on all booking slots between 12:00 PM and 04:00 PM.',
-          code: 'RAINY20',
-          color: theme.colorScheme.primary,
-        ),
-        _buildOfferCard(
-          title: 'First Match Discount',
-          desc: 'First time booking a turf? Enjoy ₹300 off on your very first turf slot.',
-          code: 'FIRSTPLAY',
-          color: Colors.indigo,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOfferCard({
-    required String title,
-    required String desc,
-    required String code,
-    required Color color,
-  }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 20),
-      clipBehavior: Clip.antiAlias,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(left: BorderSide(color: color, width: 6)),
-        ),
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            const SizedBox(height: 8),
-            Text(desc, style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.1),
-                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    code,
-                    style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Promo code "$code" copied!')),
-                    );
-                  },
-                  child: const Text('Copy Code'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   // 4. SUPPORT VIEW
   Widget _buildSupportView() {
