@@ -376,33 +376,19 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget _buildLogoHeader() {
     return Column(
       children: [
-        Container(
+        SizedBox(
           height: 100,
           width: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(50),
-            child: Image.asset(
-              'assets/logo/logo.png',
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(
-                  Icons.sports_soccer,
-                  size: 56,
-                  color: Color(0xFF10B981),
-                );
-              },
-            ),
+          child: Image.asset(
+            'assets/logo/logo.png',
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return const Icon(
+                Icons.sports_soccer,
+                size: 56,
+                color: Color(0xFF10B981),
+              );
+            },
           ),
         ),
         const SizedBox(height: 16),
