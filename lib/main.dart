@@ -1266,8 +1266,13 @@ class _MainScreenState extends State<MainScreen> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
+        return PopScope(
+          canPop: true,
+          onPopInvokedWithResult: (didPop, result) {
+            _debounceTimer?.cancel();
+          },
+          child: StatefulBuilder(
+            builder: (context, setDialogState) {
             final filteredCities = popularCities
                 .where((city) => city.toLowerCase().contains(searchQuery.toLowerCase()))
                 .toList();
@@ -1597,8 +1602,9 @@ class _MainScreenState extends State<MainScreen> {
               ),
             );
           },
-        );
-      },
+        ),
+      );
+    },
     );
   }
 
