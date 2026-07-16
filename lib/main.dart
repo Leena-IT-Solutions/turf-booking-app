@@ -161,13 +161,6 @@ class _MainScreenState extends State<MainScreen> {
           _getAppBarTitle(),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        // If it's a sub-page, show a back arrow. Otherwise, show the hamburger drawer icon.
-        leading: isSubPage
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => setState(() => _currentIndex = 0),
-              )
-            : null,
       ),
       drawer: Drawer(
         child: Column(
