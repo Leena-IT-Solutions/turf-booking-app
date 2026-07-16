@@ -1137,10 +1137,12 @@ class _MainScreenState extends State<MainScreen> {
       });
 
       try {
-        List<Location> locations = await Geocoding().locationFromAddress(text);
+        // Appending ', India' to force geocoding suggestions to be biased/located in India
+        List<Location> locations = await Geocoding().locationFromAddress("$text, India");
         List<Map<String, dynamic>> resolvedPlaces = [];
+        final Set<String> seenDisplayNames = {};
         
-        int limit = locations.length > 3 ? 3 : locations.length;
+        int limit = locations.length > 6 ? 6 : locations.length;
         for (int i = 0; i < limit; i++) {
           Location loc = locations[i];
           try {
@@ -1151,6 +1153,10 @@ class _MainScreenState extends State<MainScreen> {
             if (placemarks.isNotEmpty) {
               Placemark pm = placemarks[0];
               
+              // Validate that the returned placemark is in India
+              final isIndia = (pm.country?.toLowerCase() == 'india' || pm.isoCountryCode?.toLowerCase() == 'in');
+              if (!isIndia) continue;
+              
               final Set<String> uniqueParts = {};
               if (pm.subLocality != null && pm.subLocality!.isNotEmpty) uniqueParts.add(pm.subLocality!);
               if (pm.locality != null && pm.locality!.isNotEmpty) uniqueParts.add(pm.locality!);
@@ -1158,6 +1164,11 @@ class _MainScreenState extends State<MainScreen> {
               if (pm.administrativeArea != null && pm.administrativeArea!.isNotEmpty) uniqueParts.add(pm.administrativeArea!);
               
               String displayName = uniqueParts.isNotEmpty ? uniqueParts.join(', ') : text;
+              displayName = _capitalizeCity(displayName);
+              
+              if (seenDisplayNames.contains(displayName.toLowerCase())) continue;
+              seenDisplayNames.add(displayName.toLowerCase());
+              
               String city = pm.locality ?? pm.subLocality ?? pm.name ?? text;
               
               resolvedPlaces.add({
