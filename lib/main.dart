@@ -1846,62 +1846,6 @@ class _MainScreenState extends State<MainScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      // Premium Verified Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withAlpha(25),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: theme.colorScheme.primary.withAlpha(50),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.verified,
-                              size: 14,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Premium Member',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Divider(
-                        color: isDark ? Colors.grey[800] : Colors.grey[200],
-                        height: 1,
-                      ),
-                      const SizedBox(height: 16),
-                      // Stats Row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildProfileStatColumn('Bookings', '${_bookings.length}', theme),
-                          Container(
-                            height: 24,
-                            width: 1,
-                            color: isDark ? Colors.grey[800] : Colors.grey[200],
-                          ),
-                          _buildProfileStatColumn('Rank', 'Pro', theme),
-                          Container(
-                            height: 24,
-                            width: 1,
-                            color: isDark ? Colors.grey[800] : Colors.grey[200],
-                          ),
-                          _buildProfileStatColumn('Points', '350', theme),
-                        ],
-                      ),
                     ],
                   ),
                 ),
@@ -1926,7 +1870,7 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ),
           _buildProfileTile(Icons.phone, 'Mobile Number', widget.userMobile.isNotEmpty ? widget.userMobile : 'Not Provided'),
-          _buildProfileTile(Icons.location_city, 'City / Region', 'Mumbai, India'),
+          _buildProfileTile(Icons.email, 'Email Address', widget.userEmail),
           const SizedBox(height: 24),
           // Settings and Actions Section
           Align(
@@ -1988,7 +1932,7 @@ class _MainScreenState extends State<MainScreen> {
             color: const Color(0xFF10B981).withOpacity(0.08),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.phone, size: 20, color: Color(0xFF10B981)),
+          child: Icon(icon, size: 20, color: const Color(0xFF10B981)),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
         subtitle: Text(subtitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -2027,30 +1971,6 @@ class _MainScreenState extends State<MainScreen> {
         subtitle: Text(subtitle, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 12)),
         trailing: const Icon(Icons.chevron_right, size: 20),
       ),
-    );
-  }
-
-  Widget _buildProfileStatColumn(String label, String value, ThemeData theme) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.primary,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            color: Colors.grey,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
     );
   }
 }
