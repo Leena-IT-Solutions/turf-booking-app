@@ -1737,39 +1737,173 @@ class _MainScreenState extends State<MainScreen> {
       padding: const EdgeInsets.all(24.0),
       child: Column(
         children: [
-          // Elegant Header Section
+          // Stunning Premium Profile Card with overlapping cover banner
           Container(
-            padding: const EdgeInsets.all(20),
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1E2022) : Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withAlpha(isDark ? 50 : 8),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
             child: Column(
               children: [
-                CircleAvatar(
-                  radius: 46,
-                  backgroundColor: theme.colorScheme.primary,
-                  child: Text(
-                    widget.userName.substring(0, widget.userName.length > 1 ? 2 : 1).toUpperCase(),
-                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
+                // Top Section with Banner & Avatar Stack
+                SizedBox(
+                  height: 145,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Banner
+                      Container(
+                        height: 95,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              theme.colorScheme.primary,
+                              theme.colorScheme.primary.withAlpha(200),
+                              theme.colorScheme.secondary.withAlpha(200),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                      ),
+                      // Decorative circle
+                      Positioned(
+                        right: -10,
+                        top: -10,
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Colors.white.withAlpha(25),
+                        ),
+                      ),
+                      // Avatar positioned overlapping the banner
+                      Positioned(
+                        top: 45,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isDark ? const Color(0xFF1E2022) : Colors.white,
+                                width: 4,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(30),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: CircleAvatar(
+                              radius: 44,
+                              backgroundColor: theme.colorScheme.primary,
+                              child: Text(
+                                widget.userName.substring(0, widget.userName.length > 1 ? 2 : 1).toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  widget.userName,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.userEmail,
-                  style: const TextStyle(color: Colors.grey, fontSize: 14),
+                // Rest of card details
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+                  child: Column(
+                    children: [
+                      Text(
+                        widget.userName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.userEmail,
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Premium Verified Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withAlpha(25),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: theme.colorScheme.primary.withAlpha(50),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.verified,
+                              size: 14,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Premium Member',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Divider(
+                        color: isDark ? Colors.grey[800] : Colors.grey[200],
+                        height: 1,
+                      ),
+                      const SizedBox(height: 16),
+                      // Stats Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildProfileStatColumn('Bookings', '${_bookings.length}', theme),
+                          Container(
+                            height: 24,
+                            width: 1,
+                            color: isDark ? Colors.grey[800] : Colors.grey[200],
+                          ),
+                          _buildProfileStatColumn('Rank', 'Pro', theme),
+                          Container(
+                            height: 24,
+                            width: 1,
+                            color: isDark ? Colors.grey[800] : Colors.grey[200],
+                          ),
+                          _buildProfileStatColumn('Points', '350', theme),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1893,6 +2027,30 @@ class _MainScreenState extends State<MainScreen> {
         subtitle: Text(subtitle, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 12)),
         trailing: const Icon(Icons.chevron_right, size: 20),
       ),
+    );
+  }
+
+  Widget _buildProfileStatColumn(String label, String value, ThemeData theme) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Colors.grey,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }
