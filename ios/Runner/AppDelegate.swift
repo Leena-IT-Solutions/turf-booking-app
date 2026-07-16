@@ -8,9 +8,9 @@ import GoogleMaps
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
+    let registrar = self.registrar(forPlugin: "GoogleMapsDynamicInit")
     let mapsChannel = FlutterMethodChannel(name: "com.turfbooking.app/google_maps",
-                                              binaryMessenger: controller.binaryMessenger)
+                                           binaryMessenger: registrar!.messenger())
     mapsChannel.setMethodCallHandler({
       (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
       if call.method == "initialize" {
