@@ -1831,7 +1831,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'support@turfbooking.com',
+                        'turf@infoleena.com',
                         style: TextStyle(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w600,
