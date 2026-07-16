@@ -1121,6 +1121,16 @@ class _MainScreenState extends State<MainScreen> {
       'Hyderabad',
       'Chennai'
     ];
+    final Map<String, String> cityCoordinates = {
+      'Mumbai': '19.0760° N, 72.8777° E',
+      'Navi Mumbai': '19.0330° N, 73.0297° E',
+      'Thane': '19.2183° N, 72.9781° E',
+      'Pune': '18.5204° N, 73.8567° E',
+      'Delhi': '28.6139° N, 77.2090° E',
+      'Bangalore': '12.9716° N, 77.5946° E',
+      'Hyderabad': '17.3850° N, 78.4867° E',
+      'Chennai': '13.0827° N, 80.2707° E'
+    };
     String searchQuery = '';
 
     showDialog(
@@ -1146,12 +1156,28 @@ class _MainScreenState extends State<MainScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Select Location',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Select Location',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            if (_selectedLatitude != null && _selectedLongitude != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                '${_selectedLatitude!.toStringAsFixed(4)}°, ${_selectedLongitude!.toStringAsFixed(4)}°',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         IconButton(
                           icon: const Icon(Icons.close),
@@ -1261,6 +1287,13 @@ class _MainScreenState extends State<MainScreen> {
                                   style: TextStyle(
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                     color: isSelected ? theme.colorScheme.primary : null,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  cityCoordinates[city] ?? '',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey[500],
                                   ),
                                 ),
                                 trailing: isSelected
