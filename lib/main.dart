@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 void main() {
   runApp(const MyApp());
@@ -871,6 +873,8 @@ class _MainScreenState extends State<MainScreen> {
   PageController? _sliderPageController;
   Timer? _sliderTimer;
   int _sliderCurrentPage = 0;
+  String _selectedCity = 'Mumbai';
+  bool _isLocating = false;
 
   final String _baseUrl = 'https://turf.infoleena.com/api';
 
@@ -908,6 +912,7 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _sliderPageController = PageController(initialPage: 0);
     _fetchSliderImages();
+    _getCurrentLocation();
   }
 
   void _startSliderTimer() {
@@ -953,6 +958,241 @@ class _MainScreenState extends State<MainScreen> {
     } catch (e) {
       if (mounted) setState(() => _sliderLoading = false);
     }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    if (mounted) {
+      setState(() {
+        _isLocating = true;
+      });
+    }
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          setState(() {
+            _isLocating = false;
+            _selectedCity = 'Mumbai';
+          });
+        }
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            setState(() {
+              _isLocating = false;
+              _selectedCity = 'Mumbai';
+            });
+          }
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() {
+            _isLocating = false;
+            _selectedCity = 'Mumbai';
+          });
+        }
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.low,
+        ),
+      );
+
+      List<Placemark> placemarks = await Geocoding().placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        String? city = place.locality ?? place.subAdministrativeArea ?? place.administrativeArea;
+        if (mounted) {
+          setState(() {
+            _selectedCity = (city != null && city.isNotEmpty) ? city : 'Mumbai';
+            _isLocating = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _selectedCity = 'Mumbai';
+            _isLocating = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _selectedCity = 'Mumbai';
+          _isLocating = false;
+        });
+      }
+    }
+  }
+
+  void _showCityPickerDialog() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final List<String> popularCities = [
+      'Mumbai',
+      'Navi Mumbai',
+      'Thane',
+      'Pune',
+      'Delhi',
+      'Bangalore',
+      'Hyderabad',
+      'Chennai'
+    ];
+    String searchQuery = '';
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final filteredCities = popularCities
+                .where((city) => city.toLowerCase().contains(searchQuery.toLowerCase()))
+                .toList();
+
+            return Dialog(
+              backgroundColor: isDark ? const Color(0xFF1E2022) : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Select Location',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Search box
+                    TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search city...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        fillColor: isDark ? const Color(0xFF0F1011) : Colors.grey[100],
+                        filled: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                      ),
+                      onChanged: (val) {
+                        setDialogState(() {
+                          searchQuery = val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Detect Location Button
+                    InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                        _getCurrentLocation();
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.my_location_rounded,
+                              color: theme.colorScheme.primary,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Use Current Location',
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Popular Cities',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: filteredCities.map((city) {
+                            final isSelected = city == _selectedCity;
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                              title: Text(
+                                city,
+                                style: TextStyle(
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected ? theme.colorScheme.primary : null,
+                                ),
+                              ),
+                              trailing: isSelected
+                                  ? Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 20)
+                                  : null,
+                              onTap: () {
+                                setState(() {
+                                  _selectedCity = city;
+                                });
+                                Navigator.pop(context);
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   // --- API OPERATIONS ---
@@ -1697,24 +1937,54 @@ class _MainScreenState extends State<MainScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Hello, ${widget.userName}! 👋',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.5,
-                    ),
+              InkWell(
+                onTap: _showCityPickerDialog,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_rounded,
+                            size: 16,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'YOUR LOCATION',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[500],
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            _isLocating ? 'Locating...' : _selectedCity,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 18,
+                            color: Colors.grey[600],
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Ready to dominate the pitch today?',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                ],
+                ),
               ),
               CircleAvatar(
                 backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
