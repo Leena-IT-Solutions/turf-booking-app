@@ -863,6 +863,7 @@ class _MainScreenState extends State<MainScreen> {
   bool _supportLoading = false;
   final TextEditingController _supportMessageController = TextEditingController();
   final ScrollController _supportScrollController = ScrollController();
+  final FocusNode _supportFocusNode = FocusNode();
   Timer? _supportTimer;
 
   final String _baseUrl = 'https://turf.infoleena.com/api';
@@ -1262,6 +1263,7 @@ class _MainScreenState extends State<MainScreen> {
     _supportTimer?.cancel();
     _supportMessageController.dispose();
     _supportScrollController.dispose();
+    _supportFocusNode.dispose();
     super.dispose();
   }
 
@@ -1310,6 +1312,7 @@ class _MainScreenState extends State<MainScreen> {
     if (text.isEmpty) return;
 
     _supportMessageController.clear();
+    _supportFocusNode.requestFocus();
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/support/messages'),
@@ -1866,6 +1869,7 @@ class _MainScreenState extends State<MainScreen> {
                 Expanded(
                   child: TextField(
                     controller: _supportMessageController,
+                    focusNode: _supportFocusNode,
                     textCapitalization: TextCapitalization.sentences,
                     style: const TextStyle(fontSize: 14),
                     decoration: InputDecoration(
