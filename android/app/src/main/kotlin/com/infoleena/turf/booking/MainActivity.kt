@@ -1,4 +1,4 @@
-package com.infoleena.turf_booking
+package com.infoleena.turf.booking
 
 import io.flutter.embedding.android.FlutterActivity
 
