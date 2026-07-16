@@ -878,6 +878,9 @@ class _MainScreenState extends State<MainScreen> {
   bool _isLocating = false;
   double? _selectedLatitude;
   double? _selectedLongitude;
+  List<Map<String, dynamic>> _suggestions = [];
+  bool _suggestionsLoading = false;
+  Timer? _debounceTimer;
 
   final String _baseUrl = 'https://turf.infoleena.com/api';
 
@@ -1117,6 +1120,72 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  void _onSearchTextChanged(String text, StateSetter setDialogState) {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    
+    if (text.trim().isEmpty) {
+      setDialogState(() {
+        _suggestions = [];
+        _suggestionsLoading = false;
+      });
+      return;
+    }
+
+    _debounceTimer = Timer(const Duration(milliseconds: 600), () async {
+      setDialogState(() {
+        _suggestionsLoading = true;
+      });
+
+      try {
+        List<Location> locations = await Geocoding().locationFromAddress(text);
+        List<Map<String, dynamic>> resolvedPlaces = [];
+        
+        int limit = locations.length > 3 ? 3 : locations.length;
+        for (int i = 0; i < limit; i++) {
+          Location loc = locations[i];
+          try {
+            List<Placemark> placemarks = await Geocoding().placemarkFromCoordinates(
+              loc.latitude,
+              loc.longitude,
+            );
+            if (placemarks.isNotEmpty) {
+              Placemark pm = placemarks[0];
+              
+              final Set<String> uniqueParts = {};
+              if (pm.subLocality != null && pm.subLocality!.isNotEmpty) uniqueParts.add(pm.subLocality!);
+              if (pm.locality != null && pm.locality!.isNotEmpty) uniqueParts.add(pm.locality!);
+              if (pm.subAdministrativeArea != null && pm.subAdministrativeArea!.isNotEmpty) uniqueParts.add(pm.subAdministrativeArea!);
+              if (pm.administrativeArea != null && pm.administrativeArea!.isNotEmpty) uniqueParts.add(pm.administrativeArea!);
+              
+              String displayName = uniqueParts.isNotEmpty ? uniqueParts.join(', ') : text;
+              String city = pm.locality ?? pm.subLocality ?? pm.name ?? text;
+              
+              resolvedPlaces.add({
+                'name': displayName,
+                'city': city,
+                'lat': loc.latitude,
+                'lng': loc.longitude,
+              });
+            }
+          } catch (e) {
+            // Ignore error for individual placemark resolution
+          }
+        }
+
+        setDialogState(() {
+          _suggestions = resolvedPlaces;
+          _suggestionsLoading = false;
+        });
+      } catch (e) {
+        debugPrint('Suggestions error: $e');
+        setDialogState(() {
+          _suggestions = [];
+          _suggestionsLoading = false;
+        });
+      }
+    });
+  }
+
   void _showCityPickerDialog() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -1226,6 +1295,7 @@ class _MainScreenState extends State<MainScreen> {
                         setDialogState(() {
                           searchQuery = val;
                         });
+                        _onSearchTextChanged(val, setDialogState);
                       },
                       onSubmitted: (val) {
                         if (val.trim().isNotEmpty) {
@@ -1269,9 +1339,9 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Popular Cities',
-                      style: TextStyle(
+                    Text(
+                      searchQuery.trim().isEmpty ? 'Popular Cities' : 'Suggestions',
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                         color: Colors.grey,
@@ -1283,50 +1353,93 @@ class _MainScreenState extends State<MainScreen> {
                       child: SingleChildScrollView(
                         child: Column(
                           children: [
-                            if (searchQuery.trim().isNotEmpty &&
-                                !popularCities.any((c) => c.toLowerCase() == searchQuery.trim().toLowerCase()))
-                              ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                                leading: Icon(Icons.location_on, color: theme.colorScheme.primary, size: 20),
-                                title: Text(
-                                  'Select "${searchQuery.trim()}"',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.primary,
+                            if (searchQuery.trim().isEmpty) ...[
+                              ...filteredCities.map((city) {
+                                final isSelected = city == _selectedCity;
+                                return ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                                  title: Text(
+                                    city,
+                                    style: TextStyle(
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      color: isSelected ? theme.colorScheme.primary : null,
+                                    ),
                                   ),
-                                ),
-                                onTap: () {
-                                  _selectCityAndResolveCoordinates(searchQuery.trim());
-                                  Navigator.pop(context);
-                                },
-                              ),
-                            ...filteredCities.map((city) {
-                              final isSelected = city == _selectedCity;
-                              return ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                                title: Text(
-                                  city,
-                                  style: TextStyle(
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                    color: isSelected ? theme.colorScheme.primary : null,
+                                  subtitle: Text(
+                                    cityCoordinates[city] ?? '',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey[500],
+                                    ),
                                   ),
-                                ),
-                                subtitle: Text(
-                                  cityCoordinates[city] ?? '',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey[500],
+                                  trailing: isSelected
+                                      ? Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 20)
+                                      : null,
+                                  onTap: () {
+                                    _selectCityAndResolveCoordinates(city);
+                                    Navigator.pop(context);
+                                  },
+                                );
+                              })
+                            ] else ...[
+                              if (_suggestionsLoading)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 20.0),
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
                                   ),
-                                ),
-                                trailing: isSelected
-                                    ? Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 20)
-                                    : null,
-                                onTap: () {
-                                  _selectCityAndResolveCoordinates(city);
-                                  Navigator.pop(context);
-                                },
-                              );
-                            })
+                                )
+                              else if (_suggestions.isEmpty)
+                                ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                                  leading: Icon(Icons.location_on, color: theme.colorScheme.primary, size: 20),
+                                  title: Text(
+                                    'Select "${searchQuery.trim()}"',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    _selectCityAndResolveCoordinates(searchQuery.trim());
+                                    Navigator.pop(context);
+                                  },
+                                )
+                              else
+                                ..._suggestions.map((suggestion) {
+                                  final name = suggestion['name'] as String;
+                                  final city = suggestion['city'] as String;
+                                  final lat = suggestion['lat'] as double;
+                                  final lng = suggestion['lng'] as double;
+                                  
+                                  return ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                                    leading: Icon(Icons.location_on, color: theme.colorScheme.primary, size: 20),
+                                    title: Text(
+                                      name,
+                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                    ),
+                                    subtitle: Text(
+                                      '${lat.toStringAsFixed(4)}°, ${lng.toStringAsFixed(4)}°',
+                                      style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                                    ),
+                                    onTap: () {
+                                      if (mounted) {
+                                        setState(() {
+                                          _selectedCity = _capitalizeCity(city);
+                                          _selectedLatitude = lat;
+                                          _selectedLongitude = lng;
+                                        });
+                                      }
+                                      Navigator.pop(context);
+                                    },
+                                  );
+                                }),
+                            ],
                           ],
                         ),
                       ),
