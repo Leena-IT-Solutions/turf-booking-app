@@ -68,6 +68,19 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  void _onProfileUpdated(String name, String email, String mobile) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_name', name);
+    await prefs.setString('user_email', email);
+    await prefs.setString('user_mobile', mobile);
+
+    setState(() {
+      _userName = name;
+      _userEmail = email;
+      _userMobile = mobile;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -128,7 +141,9 @@ class _MyAppState extends State<MyApp> {
               userName: _userName ?? 'Customer',
               userEmail: _userEmail ?? '',
               userMobile: _userMobile ?? '',
+              token: _token!,
               onLogout: _onLogout,
+              onProfileUpdated: _onProfileUpdated,
             )
           : AuthScreen(onLoginSuccess: _onLoginSuccess),
     );
@@ -821,14 +836,18 @@ class MainScreen extends StatefulWidget {
   final String userName;
   final String userEmail;
   final String userMobile;
+  final String token;
   final VoidCallback onLogout;
+  final Function(String, String, String) onProfileUpdated;
 
   const MainScreen({
     super.key,
     required this.userName,
     required this.userEmail,
     required this.userMobile,
+    required this.token,
     required this.onLogout,
+    required this.onProfileUpdated,
   });
 
   @override
@@ -837,6 +856,9 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0; // 0: Home, 1: Bookings, 2: Offers, 3: Support, 4: Profile
+  bool _profileLoading = false;
+
+  final String _baseUrl = 'https://turf.infoleena.com/api';
 
   final List<Map<String, String>> _bookings = [
     {
@@ -854,6 +876,350 @@ class _MainScreenState extends State<MainScreen> {
       'price': '₹2,200',
     },
   ];
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: const Color(0xFF10B981)),
+    );
+  }
+
+  // --- API OPERATIONS ---
+
+  Future<void> _handleUpdateProfile(String name, String email, String mobile) async {
+    setState(() => _profileLoading = true);
+
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/user/profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+        body: jsonEncode({
+          'name': name.trim(),
+          'email': email.trim(),
+          'mobile': mobile.trim(),
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        widget.onProfileUpdated(name, email, mobile);
+        _showSuccess('Profile details updated successfully.');
+      } else {
+        _showError(data['message'] ?? 'Failed to update profile.');
+      }
+    } catch (e) {
+      _showError('Network error. Please try again.');
+    } finally {
+      setState(() => _profileLoading = false);
+    }
+  }
+
+  Future<void> _handleChangePassword(String currentPassword, String newPassword, String confirmPassword) async {
+    setState(() => _profileLoading = true);
+
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/user/password'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+        body: jsonEncode({
+          'current_password': currentPassword,
+          'password': newPassword,
+          'password_confirmation': confirmPassword,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        _showSuccess('Password updated successfully.');
+      } else {
+        _showError(data['message'] ?? 'Failed to change password.');
+      }
+    } catch (e) {
+      _showError('Network error. Please try again.');
+    } finally {
+      setState(() => _profileLoading = false);
+    }
+  }
+
+  Future<void> _handleDeleteAccount() async {
+    setState(() => _profileLoading = true);
+
+    try {
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/user'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        widget.onLogout();
+        _showSuccess('Your account has been deleted successfully.');
+      } else {
+        _showError(data['message'] ?? 'Failed to delete account.');
+      }
+    } catch (e) {
+      _showError('Network error. Please try again.');
+    } finally {
+      setState(() => _profileLoading = false);
+    }
+  }
+
+  // --- ACTIONS SHEETS / DIALOGS ---
+
+  void _showEditProfileBottomSheet() {
+    final nameController = TextEditingController(text: widget.userName);
+    final emailController = TextEditingController(text: widget.userEmail);
+    final mobileController = TextEditingController(text: widget.userMobile);
+    final formKey = GlobalKey<FormState>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Edit Personal Details',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name',
+                      prefixIcon: Icon(Icons.person_outline),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                    ),
+                    validator: (value) => value == null || value.trim().isEmpty ? 'Please enter your name' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email Address',
+                      prefixIcon: Icon(Icons.email_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                    ),
+                    validator: (value) => value == null || value.trim().isEmpty ? 'Please enter email' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: mobileController,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Mobile Number',
+                      prefixIcon: Icon(Icons.phone_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                    ),
+                    validator: (value) => value == null || value.trim().isEmpty ? 'Please enter mobile number' : null,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (formKey.currentState!.validate()) {
+                        Navigator.pop(context);
+                        _handleUpdateProfile(
+                          nameController.text,
+                          emailController.text,
+                          mobileController.text,
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showChangePasswordBottomSheet() {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Change Password',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: currentPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Current Password',
+                      prefixIcon: Icon(Icons.lock_outline),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                    ),
+                    validator: (value) => value == null || value.isEmpty ? 'Please enter current password' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: newPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'New Password',
+                      prefixIcon: Icon(Icons.lock_outline),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                    ),
+                    validator: (value) => value == null || value.isEmpty || value.length < 6 ? 'Password must be at least 6 characters' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: confirmPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm New Password',
+                      prefixIcon: Icon(Icons.lock_outline),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Confirm your new password';
+                      if (value != newPasswordController.text) return 'Passwords do not match';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (formKey.currentState!.validate()) {
+                        Navigator.pop(context);
+                        _handleChangePassword(
+                          currentPasswordController.text,
+                          newPasswordController.text,
+                          confirmPasswordController.text,
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Update Password', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Account', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          content: const Text(
+            'WARNING: Deleting your account will permanently remove all bookings, offers, and details from our system. This action cannot be undone.\n\nAre you sure you want to proceed?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _handleDeleteAccount();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Delete Permanently'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _showLogoutDialog() {
     showDialog(
@@ -1024,7 +1390,20 @@ class _MainScreenState extends State<MainScreen> {
           ],
         ),
       ),
-      body: _buildBody(),
+      body: Stack(
+        children: [
+          _buildBody(),
+          if (_profileLoading)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                ),
+              ),
+            ),
+        ],
+      ),
       bottomNavigationBar: !isSubPage
           ? BottomNavigationBar(
               currentIndex: _currentIndex,
@@ -1441,43 +1820,108 @@ class _MainScreenState extends State<MainScreen> {
   // 5. PROFILE VIEW
   Widget _buildProfileView() {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: theme.colorScheme.primary,
-            child: Text(
-              widget.userName.substring(0, widget.userName.length > 1 ? 2 : 1).toUpperCase(),
-              style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white),
+          // Elegant Header Section
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E2022) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 46,
+                  backgroundColor: theme.colorScheme.primary,
+                  child: Text(
+                    widget.userName.substring(0, widget.userName.length > 1 ? 2 : 1).toUpperCase(),
+                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  widget.userName,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.userEmail,
+                  style: const TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            widget.userName,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
-          ),
-          Text(
-            widget.userEmail,
-            style: const TextStyle(color: Colors.grey),
-          ),
           const SizedBox(height: 24),
+          // Personal Information Section
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
+              child: Text(
+                'PERSONAL DETAILS',
+                style: TextStyle(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ),
           _buildProfileTile(Icons.phone, 'Mobile Number', widget.userMobile.isNotEmpty ? widget.userMobile : 'Not Provided'),
           _buildProfileTile(Icons.location_city, 'City / Region', 'Mumbai, India'),
-          _buildProfileTile(Icons.notifications, 'Notification Settings', 'All Alerts Enabled'),
           const SizedBox(height: 24),
-          OutlinedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profile editing coming soon.')),
-              );
-            },
-            icon: const Icon(Icons.edit),
-            label: const Text('Edit Profile Details'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 48),
+          // Settings and Actions Section
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
+              child: Text(
+                'ACCOUNT SETTINGS',
+                style: TextStyle(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  letterSpacing: 0.8,
+                ),
+              ),
             ),
+          ),
+          // Edit Profile details action
+          _buildSettingsTile(
+            icon: Icons.edit_note,
+            title: 'Edit Personal Details',
+            subtitle: 'Update your name, email, and mobile',
+            iconColor: theme.colorScheme.primary,
+            onTap: _showEditProfileBottomSheet,
+          ),
+          // Change password action
+          _buildSettingsTile(
+            icon: Icons.lock_reset,
+            title: 'Change Password',
+            subtitle: 'Reset or secure your password details',
+            iconColor: Colors.amber[700]!,
+            onTap: _showChangePasswordBottomSheet,
+          ),
+          // Delete account action
+          _buildSettingsTile(
+            icon: Icons.delete_forever,
+            title: 'Delete My Account',
+            subtitle: 'Permanently close and delete your credentials',
+            iconColor: Colors.red,
+            onTap: _showDeleteAccountDialog,
           ),
         ],
       ),
@@ -1487,11 +1931,56 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildProfileTile(IconData icon, String title, String subtitle) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.withOpacity(0.1)),
+      ),
       child: ListTile(
-        leading: Icon(icon),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right, size: 18),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981).withOpacity(0.08),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.phone, size: 20, color: Color(0xFF10B981)),
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
+        subtitle: Text(subtitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+      ),
+    );
+  }
+
+  Widget _buildSettingsTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.withOpacity(0.1)),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.08),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 22, color: iconColor),
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        subtitle: Text(subtitle, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 12)),
+        trailing: const Icon(Icons.chevron_right, size: 20),
       ),
     );
   }
