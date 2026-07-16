@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 void main() {
   runApp(const MyApp());
@@ -881,6 +882,8 @@ class _MainScreenState extends State<MainScreen> {
   List<Map<String, dynamic>> _suggestions = [];
   bool _suggestionsLoading = false;
   Timer? _debounceTimer;
+  static const _mapsChannel = MethodChannel('com.turfbooking.app/google_maps');
+  String? _googleMapsApiKey;
 
   final String _baseUrl = 'https://turf.infoleena.com/api';
 
@@ -918,6 +921,7 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _sliderPageController = PageController(initialPage: 0);
     _fetchSliderImages();
+    _fetchAppConfig();
     _getCurrentLocation();
   }
 
@@ -972,6 +976,35 @@ class _MainScreenState extends State<MainScreen> {
       if (word.isEmpty) return word;
       return word[0].toUpperCase() + word.substring(1).toLowerCase();
     }).join(' ');
+  }
+
+  Future<void> _fetchAppConfig() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/config'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final apiKey = data['google_maps_api_key'] as String?;
+        if (apiKey != null && apiKey.isNotEmpty) {
+          setState(() {
+            _googleMapsApiKey = apiKey;
+          });
+          // Initialize key on iOS side
+          try {
+            await _mapsChannel.invokeMethod('initialize', {'apiKey': apiKey});
+            debugPrint('Google Maps iOS initialized successfully.');
+          } catch (e) {
+            debugPrint('Failed to initialize Google Maps on iOS: $e');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch App Config: $e');
+    }
   }
 
   Future<void> _getCurrentLocation() async {
@@ -1120,18 +1153,21 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _onSearchTextChanged(String text, StateSetter setDialogState) {
+  void _onSearchTextChanged(String text, BuildContext dialogContext, StateSetter setDialogState) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
     
     if (text.trim().isEmpty) {
-      setDialogState(() {
-        _suggestions = [];
-        _suggestionsLoading = false;
-      });
+      if (dialogContext.mounted) {
+        setDialogState(() {
+          _suggestions = [];
+          _suggestionsLoading = false;
+        });
+      }
       return;
     }
 
     _debounceTimer = Timer(const Duration(milliseconds: 600), () async {
+      if (!dialogContext.mounted) return;
       setDialogState(() {
         _suggestionsLoading = true;
       });
@@ -1144,6 +1180,7 @@ class _MainScreenState extends State<MainScreen> {
         
         int limit = locations.length > 6 ? 6 : locations.length;
         for (int i = 0; i < limit; i++) {
+          if (!dialogContext.mounted) return;
           Location loc = locations[i];
           try {
             List<Placemark> placemarks = await Geocoding().placemarkFromCoordinates(
@@ -1183,16 +1220,20 @@ class _MainScreenState extends State<MainScreen> {
           }
         }
 
-        setDialogState(() {
-          _suggestions = resolvedPlaces;
-          _suggestionsLoading = false;
-        });
+        if (dialogContext.mounted) {
+          setDialogState(() {
+            _suggestions = resolvedPlaces;
+            _suggestionsLoading = false;
+          });
+        }
       } catch (e) {
         debugPrint('Suggestions error: $e');
-        setDialogState(() {
-          _suggestions = [];
-          _suggestionsLoading = false;
-        });
+        if (dialogContext.mounted) {
+          setDialogState(() {
+            _suggestions = [];
+            _suggestionsLoading = false;
+          });
+        }
       }
     });
   }
@@ -1306,7 +1347,7 @@ class _MainScreenState extends State<MainScreen> {
                         setDialogState(() {
                           searchQuery = val;
                         });
-                        _onSearchTextChanged(val, setDialogState);
+                        _onSearchTextChanged(val, context, setDialogState);
                       },
                       onSubmitted: (val) {
                         if (val.trim().isNotEmpty) {
@@ -1316,38 +1357,134 @@ class _MainScreenState extends State<MainScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    // Detect Location Button
-                    InkWell(
-                      onTap: () {
-                        Navigator.pop(context);
-                        _getCurrentLocation();
-                      },
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.my_location_rounded,
-                              color: theme.colorScheme.primary,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Use Current Location',
-                              style: TextStyle(
-                                color: theme.colorScheme.primary,
-                                fontWeight: FontWeight.bold,
+                    // Detect Location & Set on Map Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.pop(context);
+                              _getCurrentLocation();
+                            },
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.my_location_rounded,
+                                    color: theme.colorScheme.primary,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Current Location',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              Navigator.pop(context);
+                              debugPrint('Launching map picker. Configured key: $_googleMapsApiKey');
+                              // Launch Map Picker Screen
+                              final LatLng? result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => MapPickerScreen(
+                                    initialLatitude: _selectedLatitude ?? 19.0760,
+                                    initialLongitude: _selectedLongitude ?? 72.8777,
+                                  ),
+                                ),
+                              );
+                              if (result != null) {
+                                // Reverse geocode the picked coordinate and update state
+                                if (mounted) {
+                                  setState(() {
+                                    _isLocating = true;
+                                  });
+                                }
+                                try {
+                                  List<Placemark> placemarks = await Geocoding().placemarkFromCoordinates(
+                                    result.latitude,
+                                    result.longitude,
+                                  );
+                                  String city = 'Mumbai';
+                                  if (placemarks.isNotEmpty) {
+                                    final pm = placemarks[0];
+                                    city = pm.locality ?? pm.subLocality ?? pm.name ?? 'Mumbai';
+                                    city = _capitalizeCity(city);
+                                  }
+                                  
+                                  // Save selected coordinates & city
+                                  final prefs = await SharedPreferences.getInstance();
+                                  await prefs.setString('selected_city', city);
+                                  await prefs.setDouble('selected_latitude', result.latitude);
+                                  await prefs.setDouble('selected_longitude', result.longitude);
+                                  
+                                  if (mounted) {
+                                    setState(() {
+                                      _selectedCity = city;
+                                      _selectedLatitude = result.latitude;
+                                      _selectedLongitude = result.longitude;
+                                      _isLocating = false;
+                                    });
+                                    _showSuccess('Location updated to $city');
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    setState(() {
+                                      _isLocating = false;
+                                    });
+                                  }
+                                  _showError('Failed to resolve address for selected location.');
+                                }
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.map_rounded,
+                                    color: Colors.red,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'Set on Map',
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -3090,6 +3227,103 @@ class _MainScreenState extends State<MainScreen> {
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         subtitle: Text(subtitle, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 12)),
         trailing: const Icon(Icons.chevron_right, size: 20),
+      ),
+    );
+  }
+}
+
+class MapPickerScreen extends StatefulWidget {
+  final double initialLatitude;
+  final double initialLongitude;
+
+  const MapPickerScreen({
+    super.key,
+    required this.initialLatitude,
+    required this.initialLongitude,
+  });
+
+  @override
+  State<MapPickerScreen> createState() => _MapPickerScreenState();
+}
+
+class _MapPickerScreenState extends State<MapPickerScreen> {
+  late LatLng _selectedLocation;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedLocation = LatLng(widget.initialLatitude, widget.initialLongitude);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Pick Location'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.check_circle_rounded),
+            onPressed: () {
+              Navigator.pop(context, _selectedLocation);
+            },
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: _selectedLocation,
+              zoom: 15.0,
+            ),
+            onMapCreated: (controller) {},
+            onTap: (LatLng location) {
+              setState(() {
+                _selectedLocation = location;
+              });
+            },
+            markers: {
+              Marker(
+                markerId: const MarkerId('selected_pin'),
+                position: _selectedLocation,
+                draggable: true,
+                onDragEnd: (LatLng newLocation) {
+                  setState(() {
+                    _selectedLocation = newLocation;
+                  });
+                },
+              ),
+            },
+            myLocationEnabled: true,
+            myLocationButtonEnabled: true,
+          ),
+          Positioned(
+            bottom: 24,
+            left: 16,
+            right: 16,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 8,
+              ),
+              onPressed: () {
+                Navigator.pop(context, _selectedLocation);
+              },
+              icon: const Icon(Icons.my_location_rounded),
+              label: const Text(
+                'Confirm Selected Location',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
