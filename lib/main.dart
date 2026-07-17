@@ -4685,6 +4685,18 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
     return months[month - 1];
   }
 
+  Map<String, List<dynamic>> _getGroupedSlots() {
+    final Map<String, List<dynamic>> grouped = {};
+    for (final slot in _slots) {
+      final category = slot['category'] ?? 'Other';
+      if (!grouped.containsKey(category)) {
+        grouped[category] = [];
+      }
+      grouped[category]!.add(slot);
+    }
+    return grouped;
+  }
+
   Widget _buildSlotsSection() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -4709,127 +4721,184 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
       return _buildEmptySlotsPrompt('No slots available for the selected date.');
     }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _slots.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 2.2,
-      ),
-      itemBuilder: (context, index) {
-        final slot = _slots[index];
-        final int id = slot['id'];
-        final String label = slot['time_label'] ?? '';
-        final double price = (slot['price'] as num).toDouble();
-        final bool isBooked = slot['is_booked'] == true;
-        final bool isSelected = _selectedSlotIds.contains(id);
+    final grouped = _getGroupedSlots();
+    final orderedCategories = ['Midnight', 'Morning', 'Afternoon', 'Evening', 'Night'];
+    final sortedCategories = grouped.keys.toList()
+      ..sort((a, b) {
+        final idxA = orderedCategories.indexOf(a);
+        final idxB = orderedCategories.indexOf(b);
+        if (idxA == -1 && idxB == -1) return a.compareTo(b);
+        if (idxA == -1) return 1;
+        if (idxB == -1) return -1;
+        return idxA.compareTo(idxB);
+      });
 
-        if (isBooked) {
-          return Container(
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E2022) : Colors.grey[200],
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[500],
-                    decoration: TextDecoration.lineThrough,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.lock, size: 10, color: Colors.red),
-                      SizedBox(width: 4),
-                      Text(
-                        'Booked',
-                        style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: sortedCategories.map((category) {
+        final categorySlots = grouped[category]!;
+        final icon = _getCategoryIcon(category);
 
-        return InkWell(
-          onTap: () {
-            setState(() {
-              if (isSelected) {
-                _selectedSlotIds.remove(id);
-              } else {
-                _selectedSlotIds.add(id);
-              }
-            });
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? theme.colorScheme.primary
-                  : (isDark ? const Color(0xFF2C2D30) : Colors.white),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected ? theme.colorScheme.primary : (isDark ? Colors.grey[800]! : Colors.grey[300]!),
-                width: 1,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              child: Row(
+                children: [
+                  Icon(icon, size: 18, color: theme.colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$category Slots',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.grey[300] : Colors.grey[700],
+                    ),
+                  ),
+                ],
               ),
-              boxShadow: [
-                if (!isSelected)
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-              ],
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: categorySlots.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 2.2,
+              ),
+              itemBuilder: (context, index) {
+                final slot = categorySlots[index];
+                final int id = slot['id'];
+                final String label = slot['time_label'] ?? '';
+                final double price = (slot['price'] as num).toDouble();
+                final bool isBooked = slot['is_booked'] == true;
+                final bool isSelected = _selectedSlotIds.contains(id);
+
+                if (isBooked) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E2022) : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[500],
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.lock, size: 10, color: Colors.red),
+                              SizedBox(width: 4),
+                              Text(
+                                'Booked',
+                                style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return InkWell(
+                  onTap: () {
+                    setState(() {
+                      if (isSelected) {
+                        _selectedSlotIds.remove(id);
+                      } else {
+                        _selectedSlotIds.add(id);
+                      }
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? theme.colorScheme.primary
+                          : (isDark ? const Color(0xFF2C2D30) : Colors.white),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? theme.colorScheme.primary : (isDark ? Colors.grey[800]! : Colors.grey[300]!),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        if (!isSelected)
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 5,
+                            offset: const Offset(0, 2),
+                          ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '₹${price.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? Colors.white.withValues(alpha: 0.9) : theme.colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '₹${price.toStringAsFixed(0)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white.withValues(alpha: 0.9) : theme.colorScheme.primary,
-                  ),
-                ),
-              ],
+                );
+              },
             ),
-          ),
+            const SizedBox(height: 16),
+          ],
         );
-      },
+      }).toList(),
     );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'morning':
+        return Icons.wb_sunny_outlined;
+      case 'afternoon':
+        return Icons.wb_sunny;
+      case 'evening':
+        return Icons.wb_twilight;
+      case 'night':
+        return Icons.nights_stay;
+      default:
+        return Icons.nightlight_round;
+    }
   }
 
   Widget _buildEmptySlotsPrompt(String message) {
