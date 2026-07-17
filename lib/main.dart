@@ -4364,6 +4364,7 @@ class TurfBookingScreen extends StatefulWidget {
 enum BookingType { day, long, scattered }
 
 class _TurfBookingScreenState extends State<TurfBookingScreen> {
+  final String _baseUrl = 'https://turf.infoleena.com/api';
   BookingType _selectedType = BookingType.day;
 
   // Day Booking State
@@ -4374,6 +4375,71 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
 
   // Scattered Booking State (List of dates)
   final List<DateTime> _scatteredDates = [];
+
+  // Slots State
+  List<dynamic> _slots = [];
+  bool _slotsLoading = false;
+  final List<int> _selectedSlotIds = [];
+  bool _submittingBooking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSlots();
+  }
+
+  Future<void> _fetchSlots() async {
+    final turfId = widget.turf['id'];
+    String? dateStr;
+    
+    if (_selectedType == BookingType.day) {
+      dateStr = "${_singleDate.year}-${_singleDate.month.toString().padLeft(2, '0')}-${_singleDate.day.toString().padLeft(2, '0')}";
+    } else if (_selectedType == BookingType.long && _dateRange != null) {
+      final start = _dateRange!.start;
+      dateStr = "${start.year}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}";
+    } else if (_selectedType == BookingType.scattered && _scatteredDates.isNotEmpty) {
+      final start = _scatteredDates.first;
+      dateStr = "${start.year}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}";
+    }
+
+    if (dateStr == null) {
+      setState(() {
+        _slots = [];
+      });
+      return;
+    }
+
+    setState(() {
+      _slotsLoading = true;
+    });
+
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/turfs/$turfId/slots?date=$dateStr'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            _slots = data;
+            _slotsLoading = false;
+            _selectedSlotIds.clear();
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _slotsLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching slots: $e');
+      if (mounted) {
+        setState(() {
+          _slotsLoading = false;
+        });
+      }
+    }
+  }
 
   Widget _buildBookingTypeSelector() {
     final theme = Theme.of(context);
@@ -4407,7 +4473,9 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
       onTap: () {
         setState(() {
           _selectedType = type;
+          _selectedSlotIds.clear();
         });
+        _fetchSlots();
       },
       borderRadius: BorderRadius.circular(12),
       child: AnimatedContainer(
@@ -4483,6 +4551,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                     setState(() {
                       _singleDate = picked;
                     });
+                    _fetchSlots();
                   }
                 },
               ),
@@ -4522,6 +4591,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                     setState(() {
                       _dateRange = picked;
                     });
+                    _fetchSlots();
                   }
                 },
               ),
@@ -4552,6 +4622,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                         _scatteredDates.addAll(pickedDates);
                         _scatteredDates.sort((a, b) => a.compareTo(b));
                       });
+                      _fetchSlots();
                     }
                   },
                   icon: const Icon(Icons.calendar_month, size: 16),
@@ -4596,6 +4667,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                       setState(() {
                         _scatteredDates.remove(date);
                       });
+                      _fetchSlots();
                     },
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     backgroundColor: isDark ? const Color(0xFF1E2022) : Colors.grey[200],
@@ -4611,6 +4683,284 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
   String _getMonthName(int month) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return months[month - 1];
+  }
+
+  Widget _buildSlotsSection() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (_slotsLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 40),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_selectedType == BookingType.long && _dateRange == null) {
+      return _buildEmptySlotsPrompt('Select a date range to view slots');
+    }
+    if (_selectedType == BookingType.scattered && _scatteredDates.isEmpty) {
+      return _buildEmptySlotsPrompt('Select dates to view slots');
+    }
+
+    if (_slots.isEmpty) {
+      return _buildEmptySlotsPrompt('No slots available for the selected date.');
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _slots.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 2.2,
+      ),
+      itemBuilder: (context, index) {
+        final slot = _slots[index];
+        final int id = slot['id'];
+        final String label = slot['time_label'] ?? '';
+        final double price = (slot['price'] as num).toDouble();
+        final bool isBooked = slot['is_booked'] == true;
+        final bool isSelected = _selectedSlotIds.contains(id);
+
+        if (isBooked) {
+          return Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E2022) : Colors.grey[200],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.lock, size: 10, color: Colors.red),
+                      SizedBox(width: 4),
+                      Text(
+                        'Booked',
+                        style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return InkWell(
+          onTap: () {
+            setState(() {
+              if (isSelected) {
+                _selectedSlotIds.remove(id);
+              } else {
+                _selectedSlotIds.add(id);
+              }
+            });
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : (isDark ? const Color(0xFF2C2D30) : Colors.white),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? theme.colorScheme.primary : (isDark ? Colors.grey[800]! : Colors.grey[300]!),
+                width: 1,
+              ),
+              boxShadow: [
+                if (!isSelected)
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '₹${price.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.white.withValues(alpha: 0.9) : theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptySlotsPrompt(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 30),
+        child: Column(
+          children: [
+            Icon(Icons.calendar_today, color: Colors.grey.withValues(alpha: 0.5), size: 36),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: const TextStyle(color: Colors.grey, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submitBooking() async {
+    if (_selectedSlotIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one time slot.')),
+      );
+      return;
+    }
+
+    final List<String> dates = [];
+    if (_selectedType == BookingType.day) {
+      dates.add("${_singleDate.year}-${_singleDate.month.toString().padLeft(2, '0')}-${_singleDate.day.toString().padLeft(2, '0')}");
+    } else if (_selectedType == BookingType.long) {
+      if (_dateRange == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a date range.')),
+        );
+        return;
+      }
+      DateTime current = _dateRange!.start;
+      final end = _dateRange!.end;
+      while (!current.isAfter(end)) {
+        dates.add("${current.year}-${current.month.toString().padLeft(2, '0')}-${current.day.toString().padLeft(2, '0')}");
+        current = current.add(const Duration(days: 1));
+      }
+    } else {
+      if (_scatteredDates.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select at least one date.')),
+        );
+        return;
+      }
+      for (final date in _scatteredDates) {
+        dates.add("${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}");
+      }
+    }
+
+    setState(() {
+      _submittingBooking = true;
+    });
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final turfId = widget.turf['id'];
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/turfs/$turfId/bookings'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+        body: jsonEncode({
+          'slot_ids': _selectedSlotIds,
+          'booking_dates': dates,
+          'booking_type': _selectedType.name,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        if (mounted) {
+          setState(() {
+            _submittingBooking = false;
+          });
+        }
+        
+        if (!mounted) return;
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green),
+                SizedBox(width: 8),
+                Text('Booking Success'),
+              ],
+            ),
+            content: const Text('Your booking has been successfully confirmed!'),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        
+        navigator.pop();
+      } else {
+        final errorMsg = jsonDecode(response.body)['message'] ?? 'Booking failed. Please try again.';
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text(errorMsg)));
+        if (mounted) {
+          setState(() {
+            _submittingBooking = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Booking error: $e');
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('Failed to complete booking. Please try again.')),
+      );
+      if (mounted) {
+        setState(() {
+          _submittingBooking = false;
+        });
+      }
+    }
   }
 
   @override
@@ -4690,27 +5040,13 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
               _buildDatePickerArea(),
               const SizedBox(height: 32),
 
-              // Slots selection placeholder
+              // Slots selection
               Text(
                 'Available Slots',
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 40.0),
-                  child: Column(
-                    children: [
-                      Icon(Icons.access_time, color: Colors.grey.withValues(alpha: 0.5), size: 48),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Select dates to view available time slots',
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              _buildSlotsSection(),
             ],
           ),
         ),
@@ -4729,11 +5065,34 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
         ),
         child: SafeArea(
           child: ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please select date and slot to book.')),
-              );
-            },
+            onPressed: _submittingBooking
+                ? null
+                : (widget.token == null
+                    ? () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Login Required'),
+                            content: const Text('Please login to book this turf.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Please log in from the profile section.')),
+                                  );
+                                },
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    : _submitBooking),
             style: ElevatedButton.styleFrom(
               backgroundColor: theme.colorScheme.primary,
               foregroundColor: Colors.white,
@@ -4741,7 +5100,13 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 0,
             ),
-            child: const Text('Proceed to Payment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            child: _submittingBooking
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  )
+                : const Text('Proceed to Payment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ),
       ),
