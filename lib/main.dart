@@ -872,6 +872,8 @@ class _MainScreenState extends State<MainScreen> {
   bool _showChatWindow = false;
   List<dynamic> _sliderImages = [];
   bool _sliderLoading = false;
+  List<dynamic> _turfs = [];
+  bool _turfsLoading = false;
   PageController? _sliderPageController;
   Timer? _sliderTimer;
   int _sliderCurrentPage = 0;
@@ -922,6 +924,7 @@ class _MainScreenState extends State<MainScreen> {
     _fetchSliderImages();
     _fetchAppConfig();
     _getCurrentLocation();
+    _fetchTurfs();
   }
 
   void _startSliderTimer() {
@@ -966,6 +969,32 @@ class _MainScreenState extends State<MainScreen> {
       }
     } catch (e) {
       if (mounted) setState(() => _sliderLoading = false);
+    }
+  }
+
+  Future<void> _fetchTurfs() async {
+    if (mounted) setState(() => _turfsLoading = true);
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/turfs'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            _turfs = data;
+            _turfsLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _turfsLoading = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _turfsLoading = false);
     }
   }
 
@@ -2433,24 +2462,50 @@ class _MainScreenState extends State<MainScreen> {
 
           // Turf List
           Expanded(
-            child: ListView(
-              children: [
-                _buildTurfCard(
-                  name: 'Emerald Arena (5v5)',
-                  location: 'Kharghar, Navi Mumbai',
-                  price: '₹1,500 / hr',
-                  rating: '4.8',
-                  imageIcon: Icons.grass,
-                ),
-                _buildTurfCard(
-                  name: 'Camp Nou Turf (7v7)',
-                  location: 'Andheri West, Mumbai',
-                  price: '₹2,200 / hr',
-                  rating: '4.9',
-                  imageIcon: Icons.stadium,
-                ),
-              ],
-            ),
+            child: _turfsLoading
+                ? const Center(
+                    child: CircularProgressIndicator(),
+                  )
+                : _turfs.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.sports_soccer,
+                              size: 48,
+                              color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No approved turfs found',
+                              style: TextStyle(
+                                color: theme.colorScheme.secondary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _fetchTurfs,
+                        child: ListView.builder(
+                          itemCount: _turfs.length,
+                          itemBuilder: (context, index) {
+                            final turf = _turfs[index];
+                            return _buildTurfCard(
+                              name: turf['name'] ?? '',
+                              location: '${turf['location_name'] ?? ''}, ${turf['location_address'] ?? ''}',
+                              price: turf['price_text'] ?? '₹1,000 / hr',
+                              rating: turf['rating'] ?? '4.8',
+                              imageIcon: turf['type'] == 'Synthetic'
+                                  ? Icons.grass
+                                  : Icons.stadium,
+                              imageUrl: turf['image_url'],
+                            );
+                          },
+                        ),
+                      ),
           ),
         ],
       ),
@@ -2463,6 +2518,7 @@ class _MainScreenState extends State<MainScreen> {
     required String price,
     required String rating,
     required IconData imageIcon,
+    String? imageUrl,
   }) {
     final theme = Theme.of(context);
     return Card(
@@ -2472,12 +2528,25 @@ class _MainScreenState extends State<MainScreen> {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              width: 68,
+              height: 68,
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(imageIcon, size: 36, color: theme.colorScheme.primary),
+              clipBehavior: Clip.antiAlias,
+              child: imageUrl != null && imageUrl.isNotEmpty
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                        child: Icon(imageIcon, size: 32, color: theme.colorScheme.primary),
+                      ),
+                    )
+                  : Container(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      child: Icon(imageIcon, size: 32, color: theme.colorScheme.primary),
+                    ),
             ),
             const SizedBox(width: 16),
             Expanded(
