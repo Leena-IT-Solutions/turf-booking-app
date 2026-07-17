@@ -4887,7 +4887,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                       border: Border.all(
                         color: isSelected 
                             ? theme.colorScheme.primary.withValues(alpha: 0.5)
-                            : (isDark ? Colors.grey[850]! : Colors.grey[250]!),
+                            : (isDark ? Colors.grey[800]! : Colors.grey[300]!),
                         width: 1.5,
                       ),
                       boxShadow: [
