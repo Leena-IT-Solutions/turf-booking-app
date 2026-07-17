@@ -2558,7 +2558,7 @@ class _MainScreenState extends State<MainScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => TurfDetailScreen(turf: turf),
+              builder: (context) => TurfDetailScreen(turf: turf, token: widget.token),
             ),
           );
         },
@@ -3543,36 +3543,137 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   }
 }
 
-class TurfDetailScreen extends StatelessWidget {
+class TurfDetailScreen extends StatefulWidget {
   final Map<String, dynamic> turf;
+  final String? token;
 
-  const TurfDetailScreen({super.key, required this.turf});
+  const TurfDetailScreen({super.key, required this.turf, this.token});
+
+  @override
+  State<TurfDetailScreen> createState() => _TurfDetailScreenState();
+}
+
+class _TurfDetailScreenState extends State<TurfDetailScreen> {
+  final String _baseUrl = 'https://turf.infoleena.com/api';
+  List<dynamic> _reviews = [];
+  bool _reviewsLoading = true;
+  String _avgRating = '4.8';
+  int _reviewsCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _avgRating = widget.turf['rating']?.toString() ?? '4.8';
+    _reviewsCount = widget.turf['reviews_count'] ?? 0;
+    _fetchReviews();
+  }
+
+  Future<void> _fetchReviews() async {
+    final turfId = widget.turf['id'];
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/turfs/$turfId/reviews'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        double totalRating = 0;
+        for (var rev in data) {
+          totalRating += (rev['rating'] as num).toDouble();
+        }
+        if (mounted) {
+          setState(() {
+            _reviews = data;
+            _reviewsLoading = false;
+            _reviewsCount = data.length;
+            _avgRating = data.isNotEmpty ? (totalRating / data.length).toStringAsFixed(1) : '4.8';
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _reviewsLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching reviews: $e');
+      if (mounted) {
+        setState(() {
+          _reviewsLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<bool> _submitReview(int rating, String comment) async {
+    final turfId = widget.turf['id'];
+    if (widget.token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to submit a review.')),
+      );
+      return false;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/turfs/$turfId/reviews'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+        body: jsonEncode({
+          'rating': rating,
+          'comment': comment,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        await _fetchReviews();
+        return true;
+      } else {
+        final errorData = jsonDecode(response.body);
+        final errorMsg = errorData['message'] ?? 'Failed to submit review.';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMsg)),
+          );
+        }
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Error submitting review: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Network error. Failed to submit review.')),
+        );
+      }
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final name = turf['name'] ?? '';
-    final type = turf['type'] ?? '';
-    final description = turf['description'] ?? 'No description provided.';
-    final area = turf['area'] ?? '';
-    final locationName = turf['location_name'] ?? '';
-    final locationAddress = turf['location_address'] ?? '';
-    final price = turf['price_text'] ?? '₹1,000 / hr';
-    final rating = turf['rating'] ?? '4.8';
-    final sports = List<String>.from(turf['sports'] ?? []);
-    final facilities = List<String>.from(turf['facilities'] ?? []);
-    final equipments = List<String>.from(turf['equipments'] ?? []);
-    final imageUrls = List<String>.from(turf['image_urls'] ?? []);
-    final latitude = turf['latitude'] != null ? (turf['latitude'] as num).toDouble() : null;
-    final longitude = turf['longitude'] != null ? (turf['longitude'] as num).toDouble() : null;
+    final name = widget.turf['name'] ?? '';
+    final type = widget.turf['type'] ?? '';
+    final description = widget.turf['description'] ?? 'No description provided.';
+    final area = widget.turf['area'] ?? '';
+    final locationName = widget.turf['location_name'] ?? '';
+    final locationAddress = widget.turf['location_address'] ?? '';
+    final price = widget.turf['price_text'] ?? '₹1,000 / hr';
+    final rating = _avgRating;
+    final sports = List<String>.from(widget.turf['sports'] ?? []);
+    final facilities = List<String>.from(widget.turf['facilities'] ?? []);
+    final equipments = List<String>.from(widget.turf['equipments'] ?? []);
+    final imageUrls = List<String>.from(widget.turf['image_urls'] ?? []);
+    final latitude = widget.turf['latitude'] != null ? (widget.turf['latitude'] as num).toDouble() : null;
+    final longitude = widget.turf['longitude'] != null ? (widget.turf['longitude'] as num).toDouble() : null;
 
-    final isOnlinePayment = turf['is_online_payment_active'] == true;
-    final isPartPayment = turf['is_part_payment_active'] == true;
-    final isPayAtLocation = turf['is_pay_at_location_active'] == true;
-    final cancellationHours = turf['cancellation_hours'] ?? 0;
-    final cancellationFee = turf['cancellation_fee'] ?? 0.0;
+    final isOnlinePayment = widget.turf['is_online_payment_active'] == true;
+    final isPartPayment = widget.turf['is_part_payment_active'] == true;
+    final isPayAtLocation = widget.turf['is_pay_at_location_active'] == true;
+    final cancellationHours = widget.turf['cancellation_hours'] ?? 0;
+    final cancellationFee = widget.turf['cancellation_fee'] ?? 0.0;
 
     return Scaffold(
       body: CustomScrollView(
@@ -3824,6 +3925,123 @@ class TurfDetailScreen extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  
+                  // Reviews Header with Write a Review Button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Reviews & Ratings ($_reviewsCount)',
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      if (widget.token != null)
+                        TextButton.icon(
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => ReviewDialog(onSubmit: _submitReview),
+                            );
+                          },
+                          icon: const Icon(Icons.rate_review_outlined, size: 16),
+                          label: const Text('Write Review', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          style: TextButton.styleFrom(
+                            foregroundColor: theme.colorScheme.primary,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  if (_reviewsLoading)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  else if (_reviews.isEmpty)
+                    Card(
+                      elevation: 0,
+                      color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Icon(Icons.rate_review, color: Colors.grey, size: 36),
+                              SizedBox(height: 8),
+                              Text(
+                                'No reviews yet',
+                                style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Be the first to rate your experience!',
+                                style: TextStyle(color: Colors.grey, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Column(
+                      children: _reviews.map((rev) {
+                        final rRating = rev['rating'] ?? 5;
+                        final rUserName = rev['user_name'] ?? 'Anonymous';
+                        final rComment = rev['comment'] ?? '';
+                        final rDate = rev['created_at'] ?? 'Just now';
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          elevation: 0,
+                          color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      rUserName,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                    Text(
+                                      rDate,
+                                      style: const TextStyle(color: Colors.grey, fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: List.generate(5, (index) {
+                                    return Icon(
+                                      index < rRating ? Icons.star : Icons.star_border,
+                                      color: Colors.amber,
+                                      size: 14,
+                                    );
+                                  }),
+                                ),
+                                if (rComment.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    rComment,
+                                    style: const TextStyle(fontSize: 13, height: 1.4),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  
                   const SizedBox(height: 100), // safe space for sticky bottom bar
                 ],
               ),
@@ -4007,5 +4225,128 @@ class TurfDetailScreen extends StatelessWidget {
     } catch (e) {
       debugPrint('Could not launch maps: $e');
     }
+  }
+}
+
+class ReviewDialog extends StatefulWidget {
+  final Future<bool> Function(int rating, String comment) onSubmit;
+
+  const ReviewDialog({super.key, required this.onSubmit});
+
+  @override
+  State<ReviewDialog> createState() => _ReviewDialogState();
+}
+
+class _ReviewDialogState extends State<ReviewDialog> {
+  int _selectedRating = 5;
+  final TextEditingController _commentController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return AlertDialog(
+      title: const Text('Write a Review', style: TextStyle(fontWeight: FontWeight.bold)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Rate your experience:',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(5, (index) {
+                final starIndex = index + 1;
+                return IconButton(
+                  onPressed: _submitting ? null : () {
+                    setState(() {
+                      _selectedRating = starIndex;
+                    });
+                  },
+                  icon: Icon(
+                    starIndex <= _selectedRating ? Icons.star : Icons.star_border,
+                    color: Colors.amber,
+                    size: 32,
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Your review (optional):',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _commentController,
+              maxLines: 4,
+              enabled: !_submitting,
+              decoration: InputDecoration(
+                hintText: 'Share details of your experience at this turf...',
+                hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+                contentPadding: const EdgeInsets.all(12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _submitting ? null : () async {
+            setState(() {
+              _submitting = true;
+            });
+            final navigator = Navigator.of(context);
+            final scaffoldMessenger = ScaffoldMessenger.of(context);
+            final success = await widget.onSubmit(_selectedRating, _commentController.text.trim());
+            if (success) {
+              navigator.pop(); // Close dialog
+              scaffoldMessenger.showSnackBar(
+                const SnackBar(content: Text('Thank you for your review!')),
+              );
+            } else {
+              setState(() {
+                _submitting = false;
+              });
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: theme.colorScheme.primary,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: _submitting
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                )
+              : const Text('Submit'),
+        ),
+      ],
+    );
   }
 }
