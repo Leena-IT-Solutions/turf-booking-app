@@ -119,7 +119,7 @@ class _MyAppState extends State<MyApp> {
           backgroundColor: Color(0xFF10B981),
           foregroundColor: Colors.white,
           elevation: 0,
-          centerTitle: true,
+          centerTitle: false,
         ),
       ),
       darkTheme: ThemeData(
@@ -138,7 +138,7 @@ class _MyAppState extends State<MyApp> {
           backgroundColor: Color(0xFF1E2022),
           foregroundColor: Colors.white,
           elevation: 0,
-          centerTitle: true,
+          centerTitle: false,
         ),
       ),
       home: _token != null
