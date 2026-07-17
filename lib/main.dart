@@ -2530,16 +2530,7 @@ class _MainScreenState extends State<MainScreen> {
                   if (turfIndex >= _turfs.length) return const SizedBox.shrink();
                   final turf = _turfs[turfIndex];
 
-                  return _buildTurfCard(
-                    name: turf['name'] ?? '',
-                    location: '${turf['location_name'] ?? ''}, ${turf['location_address'] ?? ''}',
-                    price: turf['price_text'] ?? '₹1,000 / hr',
-                    rating: turf['rating'] ?? '4.8',
-                    imageIcon: turf['type'] == 'Synthetic'
-                        ? Icons.grass
-                        : Icons.stadium,
-                    imageUrl: turf['image_url'],
-                  );
+                  return _buildTurfCard(turf);
                 },
               ),
             ),
@@ -2549,89 +2540,100 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildTurfCard({
-    required String name,
-    required String location,
-    required String price,
-    required String rating,
-    required IconData imageIcon,
-    String? imageUrl,
-  }) {
+  Widget _buildTurfCard(Map<String, dynamic> turf) {
     final theme = Theme.of(context);
+    final name = turf['name'] ?? '';
+    final location = '${turf['location_name'] ?? ''}, ${turf['location_address'] ?? ''}';
+    final price = turf['price_text'] ?? '₹1,000 / hr';
+    final rating = turf['rating'] ?? '4.8';
+    final imageIcon = turf['type'] == 'Synthetic' ? Icons.grass : Icons.stadium;
+    final imageUrl = turf['image_url'];
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Container(
-              width: 68,
-              height: 68,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: imageUrl != null && imageUrl.isNotEmpty
-                  ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TurfDetailScreen(turf: turf),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: imageUrl != null && imageUrl.isNotEmpty
+                    ? Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                          child: Icon(imageIcon, size: 32, color: theme.colorScheme.primary),
+                        ),
+                      )
+                    : Container(
                         color: theme.colorScheme.primary.withValues(alpha: 0.1),
                         child: Icon(imageIcon, size: 32, color: theme.colorScheme.primary),
                       ),
-                    )
-                  : Container(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                      child: Icon(imageIcon, size: 32, color: theme.colorScheme.primary),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 14, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            location,
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      price,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
                 children: [
-                  Text(
-                    name,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.location_on, size: 14, color: Colors.grey),
+                      const Icon(Icons.star, color: Colors.amber, size: 18),
                       const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          location,
-                          style: const TextStyle(color: Colors.grey, fontSize: 12),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+                      Text(rating, style: const TextStyle(fontWeight: FontWeight.bold)),
                     ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    price,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
-                    ),
                   ),
                 ],
               ),
-            ),
-            Column(
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 18),
-                    const SizedBox(width: 4),
-                    Text(rating, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -3535,6 +3537,375 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class TurfDetailScreen extends StatelessWidget {
+  final Map<String, dynamic> turf;
+
+  const TurfDetailScreen({super.key, required this.turf});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final name = turf['name'] ?? '';
+    final type = turf['type'] ?? '';
+    final description = turf['description'] ?? 'No description provided.';
+    final area = turf['area'] ?? '';
+    final locationName = turf['location_name'] ?? '';
+    final locationAddress = turf['location_address'] ?? '';
+    final price = turf['price_text'] ?? '₹1,000 / hr';
+    final rating = turf['rating'] ?? '4.8';
+    final sports = List<String>.from(turf['sports'] ?? []);
+    final facilities = List<String>.from(turf['facilities'] ?? []);
+    final equipments = List<String>.from(turf['equipments'] ?? []);
+    final imageUrls = List<String>.from(turf['image_urls'] ?? []);
+
+    final isOnlinePayment = turf['is_online_payment_active'] == true;
+    final isPartPayment = turf['is_part_payment_active'] == true;
+    final isPayAtLocation = turf['is_pay_at_location_active'] == true;
+    final cancellationHours = turf['cancellation_hours'] ?? 0;
+    final cancellationFee = turf['cancellation_fee'] ?? 0.0;
+
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          // Image / Gallery Header with back button
+          SliverAppBar(
+            expandedHeight: 250,
+            pinned: true,
+            backgroundColor: theme.colorScheme.surface,
+            automaticallyImplyLeading: false,
+            leading: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: CircleAvatar(
+                backgroundColor: isDark ? Colors.black45 : Colors.white70,
+                child: IconButton(
+                  icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: imageUrls.isNotEmpty
+                  ? PageView.builder(
+                      itemCount: imageUrls.length,
+                      itemBuilder: (context, index) {
+                        return Image.network(
+                          imageUrls[index],
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                            child: Icon(
+                              type == 'Synthetic' ? Icons.grass : Icons.stadium,
+                              size: 80,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      child: Icon(
+                        type == 'Synthetic' ? Icons.grass : Icons.stadium,
+                        size: 80,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+            ),
+          ),
+
+          // Turf details content
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Name and Rating Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.star, color: Colors.amber, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              rating,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Area and Type Badge
+                  Row(
+                    children: [
+                      _buildChip(type, theme.colorScheme.primary.withValues(alpha: 0.1), theme.colorScheme.primary),
+                      if (area.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        _buildChip(area, Colors.grey.withValues(alpha: 0.1), Colors.grey),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Location Card
+                  Card(
+                    elevation: 0,
+                    color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.location_on, color: theme.colorScheme.primary, size: 24),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  locationName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  locationAddress,
+                                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Description
+                  Text(
+                    'About Turf',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    description,
+                    style: const TextStyle(color: Colors.grey, height: 1.5),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Sports tag list
+                  if (sports.isNotEmpty) ...[
+                    Text(
+                      'Sports Available',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: sports.map((s) => _buildChip(s, theme.colorScheme.primary.withValues(alpha: 0.08), theme.colorScheme.primary)).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Facilities tag list
+                  if (facilities.isNotEmpty) ...[
+                    Text(
+                      'Facilities & Amenities',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: facilities.map((f) => _buildChip(f, Colors.blue.withValues(alpha: 0.08), Colors.blue)).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Equipments tag list
+                  if (equipments.isNotEmpty) ...[
+                    Text(
+                      'Equipments Available',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: equipments.map((e) => _buildChip(e, Colors.orange.withValues(alpha: 0.08), Colors.orange)).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Payment & Policies Card
+                  Text(
+                    'Rules & Booking Policies',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  Card(
+                    elevation: 0,
+                    color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          // Cancellation Policy
+                          Row(
+                            children: [
+                              Icon(Icons.info_outline, color: theme.colorScheme.primary, size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  cancellationHours > 0 
+                                      ? 'Free cancellation up to $cancellationHours hours before the slot. Fee: ₹$cancellationFee.'
+                                      : 'No cancellations allowed after booking.',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 24),
+                          // Payment Modes
+                          Row(
+                            children: [
+                              Icon(Icons.payment, color: theme.colorScheme.primary, size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Payment Modes: ${[
+                                    if (isOnlinePayment) 'Online Payment',
+                                    if (isPartPayment) 'Part Payment',
+                                    if (isPayAtLocation) 'Pay at Location',
+                                  ].join(', ')}',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 100), // safe space for sticky bottom bar
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      bottomSheet: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Price starts from', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  const SizedBox(height: 2),
+                  Text(
+                    price,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  // Standard mock booking success dialog
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Book Slot'),
+                      content: const Text('Booking feature will be available soon!'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: const Text('Book Now', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChip(String label, Color bgColor, Color textColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: textColor,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+        ),
       ),
     );
   }
