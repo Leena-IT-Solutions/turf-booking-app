@@ -2547,6 +2547,7 @@ class _MainScreenState extends State<MainScreen> {
     final location = '${turf['location_name'] ?? ''}, ${turf['location_address'] ?? ''}';
     final price = turf['price_text'] ?? '₹1,000 / hr';
     final rating = turf['rating'] ?? '0.0';
+    final hasRating = rating != '0.0' && rating != '0';
     final imageIcon = turf['type'] == 'Synthetic' ? Icons.grass : Icons.stadium;
     final imageUrl = turf['image_url'];
 
@@ -2622,17 +2623,18 @@ class _MainScreenState extends State<MainScreen> {
                   ],
                 ),
               ),
-              Column(
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.star, color: Colors.amber, size: 18),
-                      const SizedBox(width: 4),
-                      Text(rating, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ],
-              ),
+              if (hasRating)
+                Column(
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.star, color: Colors.amber, size: 18),
+                        const SizedBox(width: 4),
+                        Text(rating, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -3662,6 +3664,7 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
     final locationAddress = widget.turf['location_address'] ?? '';
     final price = widget.turf['price_text'] ?? '₹1,000 / hr';
     final rating = _avgRating;
+    final hasRating = rating != '0.0' && rating != '0';
     final sports = List<String>.from(widget.turf['sports'] ?? []);
     final facilities = List<String>.from(widget.turf['facilities'] ?? []);
     final equipments = List<String>.from(widget.turf['equipments'] ?? []);
@@ -3745,27 +3748,29 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.star, color: Colors.amber, size: 16),
-                            const SizedBox(width: 4),
-                            Text(
-                              rating,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.amber,
+                       if (hasRating) ...[
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.star, color: Colors.amber, size: 16),
+                              const SizedBox(width: 4),
+                              Text(
+                                rating,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 8),
