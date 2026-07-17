@@ -4839,15 +4839,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                 }
 
                 return InkWell(
-                  onTap: () {
-                    setState(() {
-                      if (isSelected) {
-                        _selectedSlotIds.remove(id);
-                      } else {
-                        _selectedSlotIds.add(id);
-                      }
-                    });
-                  },
+                  onTap: () => _onSlotTapped(id),
                   borderRadius: BorderRadius.circular(12),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
@@ -4916,6 +4908,229 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
         return Icons.nights_stay;
       default:
         return Icons.nightlight_round;
+    }
+  }
+
+  void _onSlotTapped(int tappedId) {
+    final tappedIndex = _slots.indexWhere((s) => s['id'] == tappedId);
+    if (tappedIndex == -1) return;
+
+    final tappedSlot = _slots[tappedIndex];
+    final bool isBooked = tappedSlot['is_booked'] == true;
+    if (isBooked) return;
+
+    final bool isSelected = _selectedSlotIds.contains(tappedId);
+
+    if (_minSlotsBooking <= 1) {
+      setState(() {
+        if (isSelected) {
+          _selectedSlotIds.remove(tappedId);
+        } else {
+          _selectedSlotIds.add(tappedId);
+        }
+      });
+      return;
+    }
+
+    if (isSelected) {
+      setState(() {
+        final List<int> remainingIds = List.from(_selectedSlotIds)..remove(tappedId);
+        if (remainingIds.length < _minSlotsBooking) {
+          _selectedSlotIds.clear();
+        } else {
+          final List<int> remainingIndices = remainingIds.map((id) {
+            return _slots.indexWhere((s) => s['id'] == id);
+          }).toList()..sort();
+
+          bool consecutive = true;
+          for (int i = 0; i < remainingIndices.length - 1; i++) {
+            if (remainingIndices[i + 1] != remainingIndices[i] + 1) {
+              consecutive = false;
+              break;
+            }
+          }
+
+          if (consecutive) {
+            _selectedSlotIds.clear();
+            _selectedSlotIds.addAll(remainingIds);
+          } else {
+            _selectedSlotIds.clear();
+          }
+        }
+      });
+      return;
+    }
+
+    if (_selectedSlotIds.isEmpty) {
+      List<int> candidateIds = [];
+      bool forwardValid = true;
+
+      if (tappedIndex + _minSlotsBooking <= _slots.length) {
+        for (int i = 0; i < _minSlotsBooking; i++) {
+          final slot = _slots[tappedIndex + i];
+          if (slot['is_booked'] == true) {
+            forwardValid = false;
+            break;
+          }
+          candidateIds.add(slot['id']);
+        }
+      } else {
+        forwardValid = false;
+      }
+
+      if (forwardValid) {
+        setState(() {
+          _selectedSlotIds.clear();
+          _selectedSlotIds.addAll(candidateIds);
+        });
+        return;
+      }
+
+      candidateIds.clear();
+      bool backwardValid = true;
+
+      if (tappedIndex - _minSlotsBooking + 1 >= 0) {
+        for (int i = _minSlotsBooking - 1; i >= 0; i--) {
+          final slot = _slots[tappedIndex - i];
+          if (slot['is_booked'] == true) {
+            backwardValid = false;
+            break;
+          }
+          candidateIds.add(slot['id']);
+        }
+      } else {
+        backwardValid = false;
+      }
+
+      if (backwardValid) {
+        setState(() {
+          _selectedSlotIds.clear();
+          _selectedSlotIds.addAll(candidateIds);
+        });
+        return;
+      }
+
+      for (int startIdx = tappedIndex - _minSlotsBooking + 1; startIdx <= tappedIndex; startIdx++) {
+        if (startIdx >= 0 && startIdx + _minSlotsBooking <= _slots.length) {
+          candidateIds.clear();
+          bool windowValid = true;
+          for (int i = 0; i < _minSlotsBooking; i++) {
+            final slot = _slots[startIdx + i];
+            if (slot['is_booked'] == true) {
+              windowValid = false;
+              break;
+            }
+            candidateIds.add(slot['id']);
+          }
+          if (windowValid) {
+            setState(() {
+              _selectedSlotIds.clear();
+              _selectedSlotIds.addAll(candidateIds);
+            });
+            return;
+          }
+        }
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cannot book this slot. A minimum of $_minSlotsBooking consecutive slots is required.'),
+        ),
+      );
+      return;
+    }
+
+    final List<int> currentIndices = _selectedSlotIds.map((id) {
+      return _slots.indexWhere((s) => s['id'] == id);
+    }).toList()..sort();
+
+    final int minSelectedIdx = currentIndices.first;
+    final int maxSelectedIdx = currentIndices.last;
+
+    if (tappedIndex == minSelectedIdx - 1) {
+      setState(() {
+        _selectedSlotIds.add(tappedId);
+      });
+    } else if (tappedIndex == maxSelectedIdx + 1) {
+      setState(() {
+        _selectedSlotIds.add(tappedId);
+      });
+    } else {
+      List<int> candidateIds = [];
+      bool forwardValid = true;
+
+      if (tappedIndex + _minSlotsBooking <= _slots.length) {
+        for (int i = 0; i < _minSlotsBooking; i++) {
+          final slot = _slots[tappedIndex + i];
+          if (slot['is_booked'] == true) {
+            forwardValid = false;
+            break;
+          }
+          candidateIds.add(slot['id']);
+        }
+      } else {
+        forwardValid = false;
+      }
+
+      if (forwardValid) {
+        setState(() {
+          _selectedSlotIds.clear();
+          _selectedSlotIds.addAll(candidateIds);
+        });
+        return;
+      }
+
+      candidateIds.clear();
+      bool backwardValid = true;
+
+      if (tappedIndex - _minSlotsBooking + 1 >= 0) {
+        for (int i = _minSlotsBooking - 1; i >= 0; i--) {
+          final slot = _slots[tappedIndex - i];
+          if (slot['is_booked'] == true) {
+            backwardValid = false;
+            break;
+          }
+          candidateIds.add(slot['id']);
+        }
+      } else {
+        backwardValid = false;
+      }
+
+      if (backwardValid) {
+        setState(() {
+          _selectedSlotIds.clear();
+          _selectedSlotIds.addAll(candidateIds);
+        });
+        return;
+      }
+
+      for (int startIdx = tappedIndex - _minSlotsBooking + 1; startIdx <= tappedIndex; startIdx++) {
+        if (startIdx >= 0 && startIdx + _minSlotsBooking <= _slots.length) {
+          candidateIds.clear();
+          bool windowValid = true;
+          for (int i = 0; i < _minSlotsBooking; i++) {
+            final slot = _slots[startIdx + i];
+            if (slot['is_booked'] == true) {
+              windowValid = false;
+              break;
+            }
+            candidateIds.add(slot['id']);
+          }
+          if (windowValid) {
+            setState(() {
+              _selectedSlotIds.clear();
+              _selectedSlotIds.addAll(candidateIds);
+            });
+            return;
+          }
+        }
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cannot book this slot. A minimum of $_minSlotsBooking consecutive slots is required.'),
+        ),
+      );
     }
   }
 
