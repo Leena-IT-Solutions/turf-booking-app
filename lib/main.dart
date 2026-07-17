@@ -4361,7 +4361,269 @@ class TurfBookingScreen extends StatefulWidget {
   State<TurfBookingScreen> createState() => _TurfBookingScreenState();
 }
 
+enum BookingType { day, long, scattered }
+
 class _TurfBookingScreenState extends State<TurfBookingScreen> {
+  BookingType _selectedType = BookingType.day;
+
+  // Day Booking State
+  DateTime _singleDate = DateTime.now();
+
+  // Long Booking State (Date Range)
+  DateTimeRange? _dateRange;
+
+  // Scattered Booking State (List of dates)
+  final List<DateTime> _scatteredDates = [];
+
+  Widget _buildBookingTypeSelector() {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Booking Option',
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _buildTypeChip(BookingType.day, 'Day Booking', Icons.today)),
+            const SizedBox(width: 8),
+            Expanded(child: _buildTypeChip(BookingType.long, 'Long Booking', Icons.date_range)),
+            const SizedBox(width: 8),
+            Expanded(child: _buildTypeChip(BookingType.scattered, 'Scattered Booking', Icons.calendar_month)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTypeChip(BookingType type, String label, IconData icon) {
+    final theme = Theme.of(context);
+    final isSelected = _selectedType == type;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedType = type;
+        });
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.colorScheme.primary
+              : (isDark ? const Color(0xFF1E2022) : Colors.grey[100]),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey[700]),
+              size: 20,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Colors.white : (isDark ? Colors.grey[300] : Colors.black87),
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDatePickerArea() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    switch (_selectedType) {
+      case BookingType.day:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Select Date',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              elevation: 0,
+              color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                leading: Icon(Icons.calendar_today, color: theme.colorScheme.primary),
+                title: Text('${_singleDate.day} ${_getMonthName(_singleDate.month)} ${_singleDate.year}'),
+                subtitle: const Text('Tap to change date'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _singleDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 90)),
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      _singleDate = picked;
+                    });
+                  }
+                },
+              ),
+            ),
+          ],
+        );
+
+      case BookingType.long:
+        final rangeText = _dateRange == null
+            ? 'Select start & end date'
+            : '${_dateRange!.start.day} ${_getMonthName(_dateRange!.start.month)} - ${_dateRange!.end.day} ${_getMonthName(_dateRange!.end.month)} (${_dateRange!.duration.inDays + 1} Days)';
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Select Date Range',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              elevation: 0,
+              color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                leading: Icon(Icons.date_range, color: theme.colorScheme.primary),
+                title: Text(rangeText),
+                subtitle: Text(_dateRange == null ? 'Tap to choose range' : 'Tap to change range'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                onTap: () async {
+                  final picked = await showDateRangePicker(
+                    context: context,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 90)),
+                    initialDateRange: _dateRange,
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      _dateRange = picked;
+                    });
+                  }
+                },
+              ),
+            ),
+          ],
+        );
+
+      case BookingType.scattered:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Select Dates (${_scatteredDates.length})',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                TextButton.icon(
+                  onPressed: () async {
+                    final scaffoldMessenger = ScaffoldMessenger.of(context);
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 90)),
+                    );
+                    if (picked != null) {
+                      if (!_scatteredDates.any((d) =>
+                          d.year == picked.year &&
+                          d.month == picked.month &&
+                          d.day == picked.day)) {
+                        setState(() {
+                          _scatteredDates.add(picked);
+                          _scatteredDates.sort((a, b) => a.compareTo(b));
+                        });
+                      } else {
+                        scaffoldMessenger.showSnackBar(
+                          const SnackBar(content: Text('Date already selected.')),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Add Date', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_scatteredDates.isEmpty)
+              Card(
+                elevation: 0,
+                color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.calendar_month, color: Colors.grey, size: 36),
+                        SizedBox(height: 8),
+                        Text(
+                          'No dates selected yet',
+                          style: TextStyle(color: Colors.grey, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _scatteredDates.map((date) {
+                  return Chip(
+                    label: Text(
+                      '${date.day} ${_getMonthName(date.month)}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    deleteIcon: const Icon(Icons.close, size: 14),
+                    onDeleted: () {
+                      setState(() {
+                        _scatteredDates.remove(date);
+                      });
+                    },
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    backgroundColor: isDark ? const Color(0xFF1E2022) : Colors.grey[200],
+                    side: BorderSide.none,
+                  );
+                }).toList(),
+              ),
+          ],
+        );
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -4429,27 +4691,14 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               
-              // Calendar / Date selection placeholder
-              Text(
-                'Select Date',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Card(
-                elevation: 0,
-                color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: ListTile(
-                  leading: Icon(Icons.calendar_today, color: theme.colorScheme.primary),
-                  title: const Text('Choose booking date'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                  onTap: () {
-                    // Date picker placeholder
-                  },
-                ),
-              ),
+              // Booking option choice row
+              _buildBookingTypeSelector(),
+              const SizedBox(height: 24),
+
+              // Dynamic date picker rendering
+              _buildDatePickerArea(),
               const SizedBox(height: 32),
 
               // Slots selection placeholder
@@ -4466,7 +4715,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                       Icon(Icons.access_time, color: Colors.grey.withValues(alpha: 0.5), size: 48),
                       const SizedBox(height: 12),
                       const Text(
-                        'Select a date to view available time slots',
+                        'Select dates to view available time slots',
                         style: TextStyle(color: Colors.grey, fontSize: 14),
                       ),
                     ],
