@@ -4921,6 +4921,29 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
 
     final bool isSelected = _selectedSlotIds.contains(tappedId);
 
+    // Helper: Partition selected slot IDs into list of contiguous index blocks
+    List<List<int>> getContiguousBlocks(List<int> ids) {
+      if (ids.isEmpty) return [];
+      final List<int> indices = ids.map((id) => _slots.indexWhere((s) => s['id'] == id)).toList()..sort();
+
+      final List<List<int>> blocks = [];
+      List<int> currentBlock = [indices[0]];
+
+      for (int i = 1; i < indices.length; i++) {
+        if (indices[i] == indices[i - 1] + 1) {
+          currentBlock.add(indices[i]);
+        } else {
+          blocks.add(currentBlock);
+          currentBlock = [indices[i]];
+        }
+      }
+      blocks.add(currentBlock);
+
+      return blocks.map((block) {
+        return block.map((idx) => _slots[idx]['id'] as int).toList();
+      }).toList();
+    }
+
     if (_minSlotsBooking <= 1) {
       setState(() {
         if (isSelected) {
@@ -4933,205 +4956,117 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
     }
 
     if (isSelected) {
-      setState(() {
-        final List<int> remainingIds = List.from(_selectedSlotIds)..remove(tappedId);
-        if (remainingIds.length < _minSlotsBooking) {
-          _selectedSlotIds.clear();
-        } else {
-          final List<int> remainingIndices = remainingIds.map((id) {
-            return _slots.indexWhere((s) => s['id'] == id);
-          }).toList()..sort();
-
-          bool consecutive = true;
-          for (int i = 0; i < remainingIndices.length - 1; i++) {
-            if (remainingIndices[i + 1] != remainingIndices[i] + 1) {
-              consecutive = false;
-              break;
-            }
-          }
-
-          if (consecutive) {
-            _selectedSlotIds.clear();
-            _selectedSlotIds.addAll(remainingIds);
-          } else {
-            _selectedSlotIds.clear();
-          }
-        }
-      });
-      return;
-    }
-
-    if (_selectedSlotIds.isEmpty) {
-      List<int> candidateIds = [];
-      bool forwardValid = true;
-
-      if (tappedIndex + _minSlotsBooking <= _slots.length) {
-        for (int i = 0; i < _minSlotsBooking; i++) {
-          final slot = _slots[tappedIndex + i];
-          if (slot['is_booked'] == true) {
-            forwardValid = false;
-            break;
-          }
-          candidateIds.add(slot['id']);
-        }
-      } else {
-        forwardValid = false;
-      }
-
-      if (forwardValid) {
-        setState(() {
-          _selectedSlotIds.clear();
-          _selectedSlotIds.addAll(candidateIds);
-        });
-        return;
-      }
-
-      candidateIds.clear();
-      bool backwardValid = true;
-
-      if (tappedIndex - _minSlotsBooking + 1 >= 0) {
-        for (int i = _minSlotsBooking - 1; i >= 0; i--) {
-          final slot = _slots[tappedIndex - i];
-          if (slot['is_booked'] == true) {
-            backwardValid = false;
-            break;
-          }
-          candidateIds.add(slot['id']);
-        }
-      } else {
-        backwardValid = false;
-      }
-
-      if (backwardValid) {
-        setState(() {
-          _selectedSlotIds.clear();
-          _selectedSlotIds.addAll(candidateIds);
-        });
-        return;
-      }
-
-      for (int startIdx = tappedIndex - _minSlotsBooking + 1; startIdx <= tappedIndex; startIdx++) {
-        if (startIdx >= 0 && startIdx + _minSlotsBooking <= _slots.length) {
-          candidateIds.clear();
-          bool windowValid = true;
-          for (int i = 0; i < _minSlotsBooking; i++) {
-            final slot = _slots[startIdx + i];
-            if (slot['is_booked'] == true) {
-              windowValid = false;
-              break;
-            }
-            candidateIds.add(slot['id']);
-          }
-          if (windowValid) {
-            setState(() {
-              _selectedSlotIds.clear();
-              _selectedSlotIds.addAll(candidateIds);
-            });
-            return;
-          }
-        }
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Cannot book this slot. A minimum of $_minSlotsBooking consecutive slots is required.'),
-        ),
+      // User tapped a selected slot. Remove the entire contiguous block it belongs to.
+      final blocks = getContiguousBlocks(_selectedSlotIds);
+      final targetBlock = blocks.firstWhere(
+        (block) => block.contains(tappedId),
+        orElse: () => [],
       );
+
+      setState(() {
+        for (final id in targetBlock) {
+          _selectedSlotIds.remove(id);
+        }
+      });
       return;
     }
 
-    final List<int> currentIndices = _selectedSlotIds.map((id) {
-      return _slots.indexWhere((s) => s['id'] == id);
-    }).toList()..sort();
+    // Tapped slot is NOT currently selected.
+    // Check if it is adjacent to any of the currently selected blocks.
+    final blocks = getContiguousBlocks(_selectedSlotIds);
+    List<int>? adjacentBlock;
 
-    final int minSelectedIdx = currentIndices.first;
-    final int maxSelectedIdx = currentIndices.last;
+    for (final block in blocks) {
+      final List<int> indices = block.map((id) => _slots.indexWhere((s) => s['id'] == id)).toList()..sort();
+      final minIdx = indices.first;
+      final maxIdx = indices.last;
 
-    if (tappedIndex == minSelectedIdx - 1) {
+      if (tappedIndex == minIdx - 1 || tappedIndex == maxIdx + 1) {
+        adjacentBlock = block;
+        break;
+      }
+    }
+
+    if (adjacentBlock != null) {
       setState(() {
         _selectedSlotIds.add(tappedId);
       });
-    } else if (tappedIndex == maxSelectedIdx + 1) {
-      setState(() {
-        _selectedSlotIds.add(tappedId);
-      });
+      return;
+    }
+
+    // Start a new contiguous block
+    List<int> candidateIds = [];
+    bool forwardValid = true;
+
+    if (tappedIndex + _minSlotsBooking <= _slots.length) {
+      for (int i = 0; i < _minSlotsBooking; i++) {
+        final slot = _slots[tappedIndex + i];
+        if (slot['is_booked'] == true || _selectedSlotIds.contains(slot['id'])) {
+          forwardValid = false;
+          break;
+        }
+        candidateIds.add(slot['id']);
+      }
     } else {
-      List<int> candidateIds = [];
-      bool forwardValid = true;
-
-      if (tappedIndex + _minSlotsBooking <= _slots.length) {
-        for (int i = 0; i < _minSlotsBooking; i++) {
-          final slot = _slots[tappedIndex + i];
-          if (slot['is_booked'] == true) {
-            forwardValid = false;
-            break;
-          }
-          candidateIds.add(slot['id']);
-        }
-      } else {
-        forwardValid = false;
-      }
-
-      if (forwardValid) {
-        setState(() {
-          _selectedSlotIds.clear();
-          _selectedSlotIds.addAll(candidateIds);
-        });
-        return;
-      }
-
-      candidateIds.clear();
-      bool backwardValid = true;
-
-      if (tappedIndex - _minSlotsBooking + 1 >= 0) {
-        for (int i = _minSlotsBooking - 1; i >= 0; i--) {
-          final slot = _slots[tappedIndex - i];
-          if (slot['is_booked'] == true) {
-            backwardValid = false;
-            break;
-          }
-          candidateIds.add(slot['id']);
-        }
-      } else {
-        backwardValid = false;
-      }
-
-      if (backwardValid) {
-        setState(() {
-          _selectedSlotIds.clear();
-          _selectedSlotIds.addAll(candidateIds);
-        });
-        return;
-      }
-
-      for (int startIdx = tappedIndex - _minSlotsBooking + 1; startIdx <= tappedIndex; startIdx++) {
-        if (startIdx >= 0 && startIdx + _minSlotsBooking <= _slots.length) {
-          candidateIds.clear();
-          bool windowValid = true;
-          for (int i = 0; i < _minSlotsBooking; i++) {
-            final slot = _slots[startIdx + i];
-            if (slot['is_booked'] == true) {
-              windowValid = false;
-              break;
-            }
-            candidateIds.add(slot['id']);
-          }
-          if (windowValid) {
-            setState(() {
-              _selectedSlotIds.clear();
-              _selectedSlotIds.addAll(candidateIds);
-            });
-            return;
-          }
-        }
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Cannot book this slot. A minimum of $_minSlotsBooking consecutive slots is required.'),
-        ),
-      );
+      forwardValid = false;
     }
+
+    if (forwardValid) {
+      setState(() {
+        _selectedSlotIds.addAll(candidateIds);
+      });
+      return;
+    }
+
+    candidateIds.clear();
+    bool backwardValid = true;
+
+    if (tappedIndex - _minSlotsBooking + 1 >= 0) {
+      for (int i = _minSlotsBooking - 1; i >= 0; i--) {
+        final slot = _slots[tappedIndex - i];
+        if (slot['is_booked'] == true || _selectedSlotIds.contains(slot['id'])) {
+          backwardValid = false;
+          break;
+        }
+        candidateIds.add(slot['id']);
+      }
+    } else {
+      backwardValid = false;
+    }
+
+    if (backwardValid) {
+      setState(() {
+        _selectedSlotIds.addAll(candidateIds);
+      });
+      return;
+    }
+
+    for (int startIdx = tappedIndex - _minSlotsBooking + 1; startIdx <= tappedIndex; startIdx++) {
+      if (startIdx >= 0 && startIdx + _minSlotsBooking <= _slots.length) {
+        candidateIds.clear();
+        bool windowValid = true;
+        for (int i = 0; i < _minSlotsBooking; i++) {
+          final slot = _slots[startIdx + i];
+          if (slot['is_booked'] == true || _selectedSlotIds.contains(slot['id'])) {
+            windowValid = false;
+            break;
+          }
+          candidateIds.add(slot['id']);
+        }
+        if (windowValid) {
+          setState(() {
+            _selectedSlotIds.addAll(candidateIds);
+          });
+          return;
+        }
+      }
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Cannot book this slot. A minimum of $_minSlotsBooking consecutive slots is required.'),
+      ),
+    );
   }
 
   Widget _buildEmptySlotsPrompt(String message) {
@@ -5154,11 +5089,34 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
   }
 
   Future<void> _submitBooking() async {
-    if (_selectedSlotIds.length < _minSlotsBooking) {
+    final List<int> indices = _selectedSlotIds.map((id) => _slots.indexWhere((s) => s['id'] == id)).toList()..sort();
+    if (indices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select at least $_minSlotsBooking slot${_minSlotsBooking > 1 ? "s" : ""} to book.')),
+        const SnackBar(content: Text('Please select at least one time slot.')),
       );
       return;
+    }
+
+    final List<List<int>> blocks = [];
+    List<int> currentBlock = [indices[0]];
+
+    for (int i = 1; i < indices.length; i++) {
+      if (indices[i] == indices[i - 1] + 1) {
+        currentBlock.add(indices[i]);
+      } else {
+        blocks.add(currentBlock);
+        currentBlock = [indices[i]];
+      }
+    }
+    blocks.add(currentBlock);
+
+    for (final block in blocks) {
+      if (block.length < _minSlotsBooking) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Each consecutive block of selected slots must contain at least $_minSlotsBooking slots.')),
+        );
+        return;
+      }
     }
 
     final List<String> dates = [];
