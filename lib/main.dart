@@ -4381,11 +4381,29 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
   bool _slotsLoading = false;
   final List<int> _selectedSlotIds = [];
   bool _submittingBooking = false;
+  int _minSlotsBooking = 2;
 
   @override
   void initState() {
     super.initState();
+    _fetchConfig();
     _fetchSlots();
+  }
+
+  Future<void> _fetchConfig() async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/config'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            _minSlotsBooking = data['min_slots_booking'] ?? 2;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching config: $e');
+    }
   }
 
   Future<void> _fetchSlots() async {
@@ -4921,9 +4939,9 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
   }
 
   Future<void> _submitBooking() async {
-    if (_selectedSlotIds.isEmpty) {
+    if (_selectedSlotIds.length < _minSlotsBooking) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one time slot.')),
+        SnackBar(content: Text('Please select at least $_minSlotsBooking slot${_minSlotsBooking > 1 ? "s" : ""} to book.')),
       );
       return;
     }
