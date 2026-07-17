@@ -8,6 +8,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 void main() {
   runApp(const MyApp());
 }
@@ -3564,6 +3565,8 @@ class TurfDetailScreen extends StatelessWidget {
     final facilities = List<String>.from(turf['facilities'] ?? []);
     final equipments = List<String>.from(turf['equipments'] ?? []);
     final imageUrls = List<String>.from(turf['image_urls'] ?? []);
+    final latitude = turf['latitude'] != null ? (turf['latitude'] as num).toDouble() : null;
+    final longitude = turf['longitude'] != null ? (turf['longitude'] as num).toDouble() : null;
 
     final isOnlinePayment = turf['is_online_payment_active'] == true;
     final isPartPayment = turf['is_part_payment_active'] == true;
@@ -3686,7 +3689,7 @@ class TurfDetailScreen extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Icon(Icons.location_on, color: theme.colorScheme.primary, size: 24),
                           const SizedBox(width: 12),
@@ -3705,6 +3708,19 @@ class TurfDetailScreen extends StatelessWidget {
                                 ),
                               ],
                             ),
+                          ),
+                          const SizedBox(width: 12),
+                          IconButton(
+                            onPressed: () => _launchNavigation(latitude, longitude, locationAddress),
+                            icon: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.navigation_rounded, color: theme.colorScheme.primary, size: 20),
+                            ),
+                            tooltip: 'Navigate',
                           ),
                         ],
                       ),
@@ -3971,5 +3987,25 @@ class TurfDetailScreen extends StatelessWidget {
     if (lower.contains('bat')) return Icons.sports_cricket;
     if (lower.contains('wicket') || lower.contains('stump')) return Icons.sports_cricket;
     return Icons.hardware;
+  }
+
+  Future<void> _launchNavigation(double? lat, double? lng, String address) async {
+    Uri uri;
+    if (lat != null && lng != null) {
+      uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    } else {
+      final query = Uri.encodeComponent(address);
+      uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+    }
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
+    } catch (e) {
+      debugPrint('Could not launch maps: $e');
+    }
   }
 }
