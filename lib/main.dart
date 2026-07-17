@@ -889,22 +889,8 @@ class _MainScreenState extends State<MainScreen> {
 
   final String _baseUrl = 'https://turf.infoleena.com/api';
 
-  final List<Map<String, String>> _bookings = [
-    {
-      'turf': 'Emerald Arena (5v5)',
-      'date': 'July 20, 2026',
-      'time': '06:00 PM - 07:00 PM',
-      'status': 'Confirmed',
-      'price': '₹1,500',
-    },
-    {
-      'turf': 'Camp Nou Turf (7v7)',
-      'date': 'July 24, 2026',
-      'time': '08:00 PM - 09:00 PM',
-      'status': 'Pending',
-      'price': '₹2,200',
-    },
-  ];
+  List<dynamic> _bookings = [];
+  bool _bookingsLoading = false;
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -918,6 +904,34 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Future<void> _fetchBookings() async {
+    if (mounted) setState(() => _bookingsLoading = true);
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/bookings'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            _bookings = List<dynamic>.from(data);
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching bookings: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _bookingsLoading = false);
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -926,6 +940,7 @@ class _MainScreenState extends State<MainScreen> {
     _fetchAppConfig();
     _getCurrentLocation();
     _fetchTurfs();
+    _fetchBookings();
   }
 
   void _startSliderTimer() {
@@ -2224,7 +2239,14 @@ class _MainScreenState extends State<MainScreen> {
         selectedItemColor: _currentIndex <= 1 ? theme.colorScheme.primary : Colors.grey,
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+          if (index == 1) {
+            _fetchBookings();
+          }
+        },
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
@@ -2645,82 +2667,130 @@ class _MainScreenState extends State<MainScreen> {
   // 2. BOOKINGS VIEW
   Widget _buildBookingsView() {
     final theme = Theme.of(context);
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: _bookings.length,
-      itemBuilder: (context, index) {
-        final b = _bookings[index];
-        final isConfirmed = b['status'] == 'Confirmed';
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      b['turf']!,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isConfirmed ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        b['status']!,
-                        style: TextStyle(
-                          color: isConfirmed ? Colors.green : Colors.orange,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+
+    if (_bookingsLoading && _bookings.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_bookings.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.calendar_month,
+                size: 64,
+                color: Colors.grey.withValues(alpha: 0.4),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No Bookings Yet',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'You haven\'t booked any turfs yet. Your bookings will appear here.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchBookings,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(20),
+        itemCount: _bookings.length,
+        itemBuilder: (context, index) {
+          final b = _bookings[index];
+          final isConfirmed = b['status'] == 'Confirmed';
+          return Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          b['turf_name'] ?? 'Unknown Turf',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const Divider(height: 24),
-                Row(
-                  children: [
-                    const Icon(Icons.event, size: 16, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Text(b['date']!, style: const TextStyle(color: Colors.grey)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.schedule, size: 16, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Text(b['time']!, style: const TextStyle(color: Colors.grey)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Price Paid',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                    ),
-                    Text(
-                      b['price']!,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: theme.colorScheme.primary,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isConfirmed ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          b['status'] ?? 'Pending',
+                          style: TextStyle(
+                            color: isConfirmed ? Colors.green : Colors.orange,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  Row(
+                    children: [
+                      const Icon(Icons.event, size: 16, color: Colors.grey),
+                      const SizedBox(width: 8),
+                      Text(b['date'] ?? '', style: const TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.schedule, size: 16, color: Colors.grey),
+                      const SizedBox(width: 8),
+                      Text(b['time'] ?? '', style: const TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Price Paid',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      ),
+                      Text(
+                        b['price'] ?? '',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
