@@ -4760,17 +4760,29 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12.0),
+            Container(
+              margin: const EdgeInsets.only(top: 20, bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  width: 1,
+                ),
+              ),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(icon, size: 18, color: theme.colorScheme.primary),
                   const SizedBox(width: 8),
                   Text(
                     '$category Slots',
-                    style: theme.textTheme.titleSmall?.copyWith(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.grey[300] : Colors.grey[700],
+                      fontSize: 13,
+                      color: theme.colorScheme.primary,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ],
@@ -4782,9 +4794,9 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
               itemCount: categorySlots.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 2.2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 2.3,
               ),
               itemBuilder: (context, index) {
                 final slot = categorySlots[index];
@@ -4797,38 +4809,51 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                 if (isBooked) {
                   return Container(
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E2022) : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                      color: isDark 
+                          ? Colors.black.withValues(alpha: 0.2) 
+                          : Colors.grey[100]?.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDark ? Colors.grey[900]! : Colors.grey[200]!,
+                        width: 1,
+                      ),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    padding: const EdgeInsets.all(12),
+                    child: Stack(
                       children: [
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[500],
-                            decoration: TextDecoration.lineThrough,
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: Icon(
+                            Icons.lock_outline, 
+                            size: 14, 
+                            color: Colors.grey.withValues(alpha: 0.5),
                           ),
-                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.lock, size: 10, color: Colors.red),
-                              SizedBox(width: 4),
+                              Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: isDark ? Colors.grey[600] : Colors.grey[400],
+                                  decoration: TextDecoration.lineThrough,
+                                  decorationColor: Colors.red.withValues(alpha: 0.4),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
                               Text(
                                 'Booked',
-                                style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  color: Colors.red[400],
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
                           ),
@@ -4840,47 +4865,93 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
 
                 return InkWell(
                   onTap: () => _onSlotTapped(id),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
                     decoration: BoxDecoration(
+                      gradient: isSelected
+                          ? LinearGradient(
+                              colors: [
+                                theme.colorScheme.primary,
+                                theme.colorScheme.primary.withValues(alpha: 0.85),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : null,
                       color: isSelected
-                          ? theme.colorScheme.primary
-                          : (isDark ? const Color(0xFF2C2D30) : Colors.white),
-                      borderRadius: BorderRadius.circular(12),
+                          ? null
+                          : (isDark ? const Color(0xFF1E2022) : Colors.white),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? theme.colorScheme.primary : (isDark ? Colors.grey[800]! : Colors.grey[300]!),
-                        width: 1,
+                        color: isSelected 
+                            ? theme.colorScheme.primary.withValues(alpha: 0.5)
+                            : (isDark ? Colors.grey[850]! : Colors.grey[250]!),
+                        width: 1.5,
                       ),
                       boxShadow: [
-                        if (!isSelected)
+                        if (isSelected)
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
-                            blurRadius: 5,
-                            offset: const Offset(0, 2),
+                            color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                          )
+                        else
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
                           ),
                       ],
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    padding: const EdgeInsets.all(12),
+                    child: Stack(
                       children: [
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
-                          ),
-                          textAlign: TextAlign.center,
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: isSelected
+                              ? const Icon(
+                                  Icons.check_circle, 
+                                  size: 16, 
+                                  color: Colors.white,
+                                )
+                              : Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '₹${price.toStringAsFixed(0)}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected ? Colors.white.withValues(alpha: 0.9) : theme.colorScheme.primary,
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                  color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '₹${price.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected 
+                                      ? Colors.white.withValues(alpha: 0.9) 
+                                      : theme.colorScheme.primary,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
