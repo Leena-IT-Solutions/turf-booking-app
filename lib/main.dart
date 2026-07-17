@@ -4088,18 +4088,13 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
               ),
               ElevatedButton(
                 onPressed: () {
-                  // Standard mock booking success dialog
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Book Slot'),
-                      content: const Text('Booking feature will be available soon!'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('OK'),
-                        ),
-                      ],
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => TurfBookingScreen(
+                        turf: widget.turf,
+                        token: widget.token,
+                      ),
                     ),
                   );
                 },
@@ -4352,6 +4347,166 @@ class _ReviewDialogState extends State<ReviewDialog> {
               : const Text('Submit'),
         ),
       ],
+    );
+  }
+}
+
+class TurfBookingScreen extends StatefulWidget {
+  final Map<String, dynamic> turf;
+  final String? token;
+
+  const TurfBookingScreen({super.key, required this.turf, this.token});
+
+  @override
+  State<TurfBookingScreen> createState() => _TurfBookingScreenState();
+}
+
+class _TurfBookingScreenState extends State<TurfBookingScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    final name = widget.turf['name'] ?? '';
+    final locationName = widget.turf['location_name'] ?? '';
+    final price = widget.turf['price_text'] ?? '₹1,000 / hr';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Book Turf'),
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Summary card
+              Card(
+                elevation: 0,
+                color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.sports_soccer, color: theme.colorScheme.primary, size: 32),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              locationName,
+                              style: const TextStyle(color: Colors.grey, fontSize: 13),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              price,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              
+              // Calendar / Date selection placeholder
+              Text(
+                'Select Date',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                elevation: 0,
+                color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: ListTile(
+                  leading: Icon(Icons.calendar_today, color: theme.colorScheme.primary),
+                  title: const Text('Choose booking date'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                  onTap: () {
+                    // Date picker placeholder
+                  },
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Slots selection placeholder
+              Text(
+                'Available Slots',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40.0),
+                  child: Column(
+                    children: [
+                      Icon(Icons.access_time, color: Colors.grey.withValues(alpha: 0.5), size: 48),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Select a date to view available time slots',
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: ElevatedButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please select date and slot to book.')),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+            child: const Text('Proceed to Payment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+        ),
+      ),
     );
   }
 }
