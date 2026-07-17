@@ -3730,12 +3730,8 @@ class TurfDetailScreen extends StatelessWidget {
                       'Sports Available',
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: sports.map((s) => _buildChip(s, theme.colorScheme.primary.withValues(alpha: 0.08), theme.colorScheme.primary)).toList(),
-                    ),
+                    const SizedBox(height: 12),
+                    _buildVerticalList(sports, _getSportIcon, theme.colorScheme.primary, theme),
                     const SizedBox(height: 24),
                   ],
 
@@ -3745,12 +3741,8 @@ class TurfDetailScreen extends StatelessWidget {
                       'Facilities & Amenities',
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: facilities.map((f) => _buildChip(f, Colors.blue.withValues(alpha: 0.08), Colors.blue)).toList(),
-                    ),
+                    const SizedBox(height: 12),
+                    _buildVerticalList(facilities, _getFacilityIcon, Colors.blue, theme),
                     const SizedBox(height: 24),
                   ],
 
@@ -3760,12 +3752,8 @@ class TurfDetailScreen extends StatelessWidget {
                       'Equipments Available',
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: equipments.map((e) => _buildChip(e, Colors.orange.withValues(alpha: 0.08), Colors.orange)).toList(),
-                    ),
+                    const SizedBox(height: 12),
+                    _buildVerticalList(equipments, _getEquipmentIcon, Colors.orange, theme),
                     const SizedBox(height: 24),
                   ],
 
@@ -3908,5 +3896,80 @@ class TurfDetailScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildVerticalList(List<String> items, IconData Function(String) iconPicker, Color color, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: items.map((item) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12.0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  iconPicker(item),
+                  color: color,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  item,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  IconData _getSportIcon(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('foot') || lower.contains('soccer')) return Icons.sports_soccer;
+    if (lower.contains('crick')) return Icons.sports_cricket;
+    if (lower.contains('kabaddi') || lower.contains('martial')) return Icons.sports_martial_arts;
+    if (lower.contains('volley')) return Icons.sports_volleyball;
+    if (lower.contains('tennis')) return Icons.sports_tennis;
+    if (lower.contains('basket')) return Icons.sports_basketball;
+    if (lower.contains('badmint')) return Icons.sports_tennis;
+    return Icons.sports;
+  }
+
+  IconData _getFacilityIcon(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('shower') || lower.contains('washroom') || lower.contains('toilet') || lower.contains('wc')) {
+      return Icons.shower;
+    }
+    if (lower.contains('cafe') || lower.contains('canteen') || lower.contains('food') || lower.contains('restaurant')) {
+      return Icons.restaurant;
+    }
+    if (lower.contains('seat') || lower.contains('spectator') || lower.contains('stands') || lower.contains('chair')) {
+      return Icons.event_seat;
+    }
+    if (lower.contains('park')) return Icons.local_parking;
+    if (lower.contains('wifi') || lower.contains('internet')) return Icons.wifi;
+    if (lower.contains('changing') || lower.contains('locker') || lower.contains('room')) return Icons.checkroom;
+    return Icons.check_circle_outline;
+  }
+
+  IconData _getEquipmentIcon(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('bib') || lower.contains('jersey') || lower.contains('vest')) return Icons.checkroom;
+    if (lower.contains('ball')) return Icons.sports_soccer;
+    if (lower.contains('net')) return Icons.grid_on;
+    if (lower.contains('bat')) return Icons.sports_cricket;
+    if (lower.contains('wicket') || lower.contains('stump')) return Icons.sports_cricket;
+    return Icons.hardware;
   }
 }
