@@ -2110,7 +2110,7 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     final theme = Theme.of(context);
-    final isSubPage = _currentIndex > 1;
+
 
     return Scaffold(
       appBar: AppBar(
@@ -2218,24 +2218,31 @@ class _MainScreenState extends State<MainScreen> {
             ),
         ],
       ),
-      bottomNavigationBar: !isSubPage
-          ? BottomNavigationBar(
-              currentIndex: _currentIndex,
-              selectedItemColor: theme.colorScheme.primary,
-              unselectedItemColor: Colors.grey,
-              onTap: (index) => setState(() => _currentIndex = index),
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.home),
-                  label: 'Home',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.calendar_month),
-                  label: 'My Bookings',
-                ),
-              ],
-            )
-          : null,
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        selectedItemColor: theme.colorScheme.primary,
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        onTap: (index) => setState(() => _currentIndex = index),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_month),
+            label: 'Bookings',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.support_agent),
+            label: 'Support',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+      ),
     );
   }
 
