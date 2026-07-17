@@ -2434,78 +2434,116 @@ class _MainScreenState extends State<MainScreen> {
           ),
           const SizedBox(height: 20),
 
-          // 16:9 Image Slider
-          _buildSliderWidget(),
-          const SizedBox(height: 24),
-
-          // Featured Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Featured Turfs near you',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.secondary,
-                ),
-              ),
-              Text(
-                'See All',
-                style: TextStyle(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Turf List
+          // Entire home view (Image Slider, Featured Row, and Turf List) scrollable together
           Expanded(
-            child: _turfsLoading
-                ? const Center(
-                    child: CircularProgressIndicator(),
-                  )
-                : _turfs.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+            child: RefreshIndicator(
+              onRefresh: _fetchTurfs,
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: _turfsLoading 
+                    ? 3 
+                    : (_turfs.isEmpty ? 3 : _turfs.length + 2),
+                itemBuilder: (context, index) {
+                  // Index 0: Image Slider
+                  if (index == 0) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildSliderWidget(),
+                        const SizedBox(height: 24),
+                      ],
+                    );
+                  }
+
+                  // Index 1: Featured Row Title
+                  if (index == 1) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(
-                              Icons.sports_soccer,
-                              size: 48,
-                              color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                            ),
-                            const SizedBox(height: 12),
                             Text(
-                              'No approved turfs found',
-                              style: TextStyle(
+                              'Featured Turfs near you',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
                                 color: theme.colorScheme.secondary,
+                              ),
+                            ),
+                            Text(
+                              'See All',
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
                         ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _fetchTurfs,
-                        child: ListView.builder(
-                          itemCount: _turfs.length,
-                          itemBuilder: (context, index) {
-                            final turf = _turfs[index];
-                            return _buildTurfCard(
-                              name: turf['name'] ?? '',
-                              location: '${turf['location_name'] ?? ''}, ${turf['location_address'] ?? ''}',
-                              price: turf['price_text'] ?? '₹1,000 / hr',
-                              rating: turf['rating'] ?? '4.8',
-                              imageIcon: turf['type'] == 'Synthetic'
-                                  ? Icons.grass
-                                  : Icons.stadium,
-                              imageUrl: turf['image_url'],
-                            );
-                          },
+                        const SizedBox(height: 12),
+                      ],
+                    );
+                  }
+
+                  // Index 2+: List Content (Loading, Empty, or Turf Cards)
+                  if (_turfsLoading) {
+                    if (index == 2) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 40),
+                          child: CircularProgressIndicator(),
                         ),
-                      ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  }
+
+                  if (_turfs.isEmpty) {
+                    if (index == 2) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.sports_soccer,
+                                size: 48,
+                                color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No approved turfs found',
+                                style: TextStyle(
+                                  color: theme.colorScheme.secondary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  }
+
+                  // Render Turf Cards
+                  final turfIndex = index - 2;
+                  if (turfIndex >= _turfs.length) return const SizedBox.shrink();
+                  final turf = _turfs[turfIndex];
+
+                  return _buildTurfCard(
+                    name: turf['name'] ?? '',
+                    location: '${turf['location_name'] ?? ''}, ${turf['location_address'] ?? ''}',
+                    price: turf['price_text'] ?? '₹1,000 / hr',
+                    rating: turf['rating'] ?? '4.8',
+                    imageIcon: turf['type'] == 'Synthetic'
+                        ? Icons.grass
+                        : Icons.stadium,
+                    imageUrl: turf['image_url'],
+                  );
+                },
+              ),
+            ),
           ),
         ],
       ),
