@@ -2546,7 +2546,7 @@ class _MainScreenState extends State<MainScreen> {
     final name = turf['name'] ?? '';
     final location = '${turf['location_name'] ?? ''}, ${turf['location_address'] ?? ''}';
     final price = turf['price_text'] ?? '₹1,000 / hr';
-    final rating = turf['rating'] ?? '4.8';
+    final rating = turf['rating'] ?? '0.0';
     final imageIcon = turf['type'] == 'Synthetic' ? Icons.grass : Icons.stadium;
     final imageUrl = turf['image_url'];
 
@@ -3557,13 +3557,13 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
   final String _baseUrl = 'https://turf.infoleena.com/api';
   List<dynamic> _reviews = [];
   bool _reviewsLoading = true;
-  String _avgRating = '4.8';
+  String _avgRating = '0.0';
   int _reviewsCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _avgRating = widget.turf['rating']?.toString() ?? '4.8';
+    _avgRating = widget.turf['rating']?.toString() ?? '0.0';
     _reviewsCount = widget.turf['reviews_count'] ?? 0;
     _fetchReviews();
   }
@@ -3583,7 +3583,7 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
             _reviews = data;
             _reviewsLoading = false;
             _reviewsCount = data.length;
-            _avgRating = data.isNotEmpty ? (totalRating / data.length).toStringAsFixed(1) : '4.8';
+            _avgRating = data.isNotEmpty ? (totalRating / data.length).toStringAsFixed(1) : '0.0';
           });
         }
       } else {
