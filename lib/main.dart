@@ -2633,17 +2633,13 @@ class _MainScreenState extends State<MainScreen> {
             ),
           );
         },
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
+        child: SizedBox(
+          height: 104,
           child: Row(
             children: [
-              Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                clipBehavior: Clip.antiAlias,
+              SizedBox(
+                width: 104,
+                height: 104,
                 child: imageUrl != null && imageUrl.isNotEmpty
                     ? Image.network(
                         imageUrl,
@@ -2658,64 +2654,78 @@ class _MainScreenState extends State<MainScreen> {
                         child: Icon(imageIcon, size: 32, color: theme.colorScheme.primary),
                       ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on, size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            location,
-                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        if (distanceText != null) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            '• $distanceText',
-                            style: TextStyle(
-                              color: theme.colorScheme.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on, size: 14, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  location,
+                                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (distanceText != null) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  '• $distanceText',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      price,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary,
                       ),
-                    ),
-                  ],
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            price,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                          if (hasRating)
+                            Row(
+                              children: [
+                                const Icon(Icons.star, color: Colors.amber, size: 16),
+                                const SizedBox(width: 4),
+                                Text(
+                                  rating,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              if (hasRating)
-                Column(
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.star, color: Colors.amber, size: 18),
-                        const SizedBox(width: 4),
-                        Text(rating, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ],
-                ),
             ],
           ),
         ),
