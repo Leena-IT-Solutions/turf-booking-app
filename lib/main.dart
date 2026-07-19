@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:math' as math;
 void main() {
   runApp(const MyApp());
 }
@@ -886,6 +887,7 @@ class _MainScreenState extends State<MainScreen> {
   bool _suggestionsLoading = false;
   Timer? _debounceTimer;
   String? _googleMapsApiKey;
+  int _turfSearchKm = 10;
 
   final String _baseUrl = 'https://turf.infoleena.com/api';
 
@@ -1022,6 +1024,38 @@ class _MainScreenState extends State<MainScreen> {
     }).join(' ');
   }
 
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const double p = 0.017453292519943295; // Pi / 180
+    final double a = 0.5 -
+        math.cos((lat2 - lat1) * p) / 2 +
+        math.cos(lat1 * p) *
+            math.cos(lat2 * p) *
+            (1 - math.cos((lon2 - lon1) * p)) / 2;
+    return 12742 * math.asin(math.sqrt(a)); // 2 * R; R = 6371 km
+  }
+
+  List<dynamic> get _filteredTurfs {
+    if (_selectedLatitude == null || _selectedLongitude == null) {
+      return _turfs;
+    }
+    return _turfs.where((turf) {
+      final lat = turf['latitude'];
+      final lng = turf['longitude'];
+      if (lat == null || lng == null) return false;
+      
+      final turfLat = lat is double ? lat : double.parse(lat.toString());
+      final turfLng = lng is double ? lng : double.parse(lng.toString());
+      
+      final distance = _calculateDistance(
+        _selectedLatitude!,
+        _selectedLongitude!,
+        turfLat,
+        turfLng,
+      );
+      return distance <= _turfSearchKm;
+    }).toList();
+  }
+
   Future<void> _fetchAppConfig() async {
     try {
       final response = await http.get(
@@ -1033,11 +1067,15 @@ class _MainScreenState extends State<MainScreen> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final apiKey = data['google_maps_api_key'] as String?;
-        if (apiKey != null && apiKey.isNotEmpty) {
-          setState(() {
+        final searchKm = data['turf_search_km'];
+        setState(() {
+          if (apiKey != null && apiKey.isNotEmpty) {
             _googleMapsApiKey = apiKey;
-          });
-        }
+          }
+          if (searchKm != null) {
+            _turfSearchKm = searchKm is int ? searchKm : int.parse(searchKm.toString());
+          }
+        });
       }
     } catch (e) {
       debugPrint('Failed to fetch App Config: $e');
@@ -2464,7 +2502,7 @@ class _MainScreenState extends State<MainScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 itemCount: _turfsLoading 
                     ? 3 
-                    : (_turfs.isEmpty ? 3 : _turfs.length + 2),
+                    : (_filteredTurfs.isEmpty ? 3 : _filteredTurfs.length + 2),
                 itemBuilder: (context, index) {
                   // Index 0: Image Slider
                   if (index == 0) {
@@ -2519,7 +2557,7 @@ class _MainScreenState extends State<MainScreen> {
                     return const SizedBox.shrink();
                   }
 
-                  if (_turfs.isEmpty) {
+                  if (_filteredTurfs.isEmpty) {
                     if (index == 2) {
                       return Center(
                         child: Padding(
@@ -2550,8 +2588,8 @@ class _MainScreenState extends State<MainScreen> {
 
                   // Render Turf Cards
                   final turfIndex = index - 2;
-                  if (turfIndex >= _turfs.length) return const SizedBox.shrink();
-                  final turf = _turfs[turfIndex];
+                  if (turfIndex >= _filteredTurfs.length) return const SizedBox.shrink();
+                  final turf = _filteredTurfs[turfIndex];
 
                   return _buildTurfCard(turf);
                 },
