@@ -2611,6 +2611,16 @@ class _MainScreenState extends State<MainScreen> {
     final imageIcon = turf['type'] == 'Synthetic' ? Icons.grass : Icons.stadium;
     final imageUrl = turf['image_url'];
 
+    final lat = turf['latitude'];
+    final lng = turf['longitude'];
+    String? distanceText;
+    if (_selectedLatitude != null && _selectedLongitude != null && lat != null && lng != null) {
+      final turfLat = lat is double ? lat : double.parse(lat.toString());
+      final turfLng = lng is double ? lng : double.parse(lng.toString());
+      final dist = _calculateDistance(_selectedLatitude!, _selectedLongitude!, turfLat, turfLng);
+      distanceText = '${dist.toStringAsFixed(1)} km';
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       clipBehavior: Clip.antiAlias,
@@ -2670,6 +2680,17 @@ class _MainScreenState extends State<MainScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (distanceText != null) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            '• $distanceText',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 8),
