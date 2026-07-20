@@ -2954,7 +2954,7 @@ class _MainScreenState extends State<MainScreen> {
 
               final b = _bookings[index];
               final isConfirmed = b['status'] == 'Confirmed';
-              final isPaid = b['payment_status'] == 'Paid';
+              final isPaid = b['date_payment_status'] == 'Paid';
               final bookingType = b['booking_type'] ?? 'day';
 
               String formattedBookingType = 'Day Session';
@@ -3034,7 +3034,7 @@ class _MainScreenState extends State<MainScreen> {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                b['payment_status'] ?? 'Pending',
+                                b['date_payment_status'] ?? 'Pending',
                                 style: TextStyle(
                                   color: isPaid ? Colors.blue : Colors.red,
                                   fontSize: 10,
@@ -3102,7 +3102,7 @@ class _MainScreenState extends State<MainScreen> {
     final theme = Theme.of(context);
     final slots = List<dynamic>.from(bookingDate['slots'] ?? []);
     final isConfirmed = bookingDate['status'] == 'Confirmed';
-    final isPaid = bookingDate['payment_status'] == 'Paid';
+    final isPaid = bookingDate['date_payment_status'] == 'Paid';
     final bookingType = bookingDate['booking_type'] ?? 'day';
     final bool isManagerOrAdmin = _userRoles.any((r) => ['saas-admin', 'turf-admin', 'manager'].contains(r));
 
@@ -3120,58 +3120,35 @@ class _MainScreenState extends State<MainScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (context, scrollController) {
-            return SingleChildScrollView(
-              controller: scrollController,
-              padding: const EdgeInsets.all(24.0),
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              padding: const EdgeInsets.all(24),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              bookingDate['turf_name'] ?? 'Unknown Turf',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Booking Reference #${bookingDate['booking_id']}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          bookingDate['turf_name'] ?? 'Unknown Turf',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: isConfirmed ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
+                          color: isConfirmed
+                              ? Colors.green.withValues(alpha: 0.1)
+                              : Colors.orange.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -3185,12 +3162,20 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Booking Reference #${bookingDate['booking_id']}',
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 13,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   const Divider(),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Booking Details',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -3205,7 +3190,7 @@ class _MainScreenState extends State<MainScreen> {
                   _buildDetailRow(
                     Icons.payment,
                     'Payment Status',
-                    bookingDate['payment_status'] ?? 'Pending',
+                    bookingDate['date_payment_status'] ?? 'Pending',
                     valueColor: isPaid ? Colors.blue : Colors.red,
                   ),
                   const SizedBox(height: 24),
