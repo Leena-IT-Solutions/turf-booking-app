@@ -3367,11 +3367,11 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: slots.map<Widget>((slot) {
                       return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.primary.withValues(alpha: 0.08),
@@ -3381,7 +3381,6 @@ class _MainScreenState extends State<MainScreen> {
                           ),
                         ),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.access_time,
@@ -3402,7 +3401,7 @@ class _MainScreenState extends State<MainScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   if (bookingDate['payments'] != null && List<dynamic>.from(bookingDate['payments']).isNotEmpty) ...[
                     const Divider(),
                     const SizedBox(height: 16),
