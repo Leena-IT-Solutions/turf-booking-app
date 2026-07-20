@@ -52,6 +52,8 @@ class _MyAppState extends State<MyApp> {
     await prefs.setString('user_name', user['name'] ?? '');
     await prefs.setString('user_email', user['email'] ?? '');
     await prefs.setString('user_mobile', user['mobile'] ?? '');
+    final roles = List<String>.from(user['roles'] ?? []);
+    await prefs.setStringList('user_roles', roles);
 
     setState(() {
       _token = token;
@@ -67,6 +69,7 @@ class _MyAppState extends State<MyApp> {
     await prefs.remove('user_name');
     await prefs.remove('user_email');
     await prefs.remove('user_mobile');
+    await prefs.remove('user_roles');
 
     setState(() {
       _token = null;
@@ -243,11 +246,11 @@ class _AuthScreenState extends State<AuthScreen> {
         final user = data['user'] as Map<String, dynamic>;
         final roles = List<String>.from(user['roles'] ?? []);
 
-        if (roles.contains('customer')) {
+        if (roles.any((r) => ['customer', 'turf-admin', 'manager', 'saas-admin'].contains(r))) {
           widget.onLoginSuccess(token, user);
           _showSuccess('Welcome back, ${user['name']}!');
         } else {
-          _showError('Access denied. Only customers can log in.');
+          _showError('Access denied. You do not have permission to log in.');
         }
       } else {
         _showError(data['message'] ?? 'Login failed. Please check credentials.');
@@ -865,6 +868,16 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0; // 0: Home, 1: Bookings, 2: Support, 3: Profile
   bool _profileLoading = false;
+  List<String> _userRoles = [];
+
+  Future<void> _loadUserRoles() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _userRoles = prefs.getStringList('user_roles') ?? [];
+      });
+    }
+  }
 
   List<dynamic> _supportMessages = [];
   bool _supportLoading = false;
@@ -980,6 +993,7 @@ class _MainScreenState extends State<MainScreen> {
         }
       }
     });
+    _loadUserRoles();
     _fetchSliderImages();
     _fetchAppConfig();
     _getCurrentLocation();
@@ -3090,6 +3104,7 @@ class _MainScreenState extends State<MainScreen> {
     final isConfirmed = bookingDate['status'] == 'Confirmed';
     final isPaid = bookingDate['payment_status'] == 'Paid';
     final bookingType = bookingDate['booking_type'] ?? 'day';
+    final bool isManagerOrAdmin = _userRoles.any((r) => ['saas-admin', 'turf-admin', 'manager'].contains(r));
 
     String formattedBookingType = 'Day Session';
     if (bookingType == 'long') {
@@ -3263,11 +3278,29 @@ class _MainScreenState extends State<MainScreen> {
                     ],
                   ),
                   const SizedBox(height: 32),
+                  if (isManagerOrAdmin && !isPaid) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => _showRecordPaymentDialog(context, bookingDate),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Record Payment'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
+                    child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
+                      style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -3278,6 +3311,112 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                 ],
               ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showRecordPaymentDialog(BuildContext context, Map<String, dynamic> bookingDate) {
+    final id = bookingDate['id'];
+    String method = 'Cash';
+    final TextEditingController amountController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Record Offline Payment'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Select Payment Method:'),
+                    const SizedBox(height: 8),
+                    DropdownButton<String>(
+                      value: method,
+                      isExpanded: true,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            method = val;
+                          });
+                        }
+                      },
+                      items: ['Cash', 'UPI', 'Other'].map((m) {
+                        return DropdownMenuItem<String>(
+                          value: m,
+                          child: Text(m),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: amountController,
+                      decoration: const InputDecoration(
+                        labelText: 'Payment Amount (₹)',
+                        hintText: 'Enter amount collected',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final amt = double.tryParse(amountController.text) ?? 0.0;
+                    if (amt <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please enter a valid amount'), backgroundColor: Colors.red),
+                      );
+                      return;
+                    }
+
+                    try {
+                      final response = await http.post(
+                        Uri.parse('$_baseUrl/booking-dates/$id/payments'),
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Accept': 'application/json',
+                          'Authorization': 'Bearer ${widget.token}',
+                        },
+                        body: jsonEncode({
+                          'payment_method': method,
+                          'amount': amt,
+                        }),
+                      );
+
+                      if (response.statusCode == 200) {
+                        if (!context.mounted) return;
+                        Navigator.pop(context);
+                        Navigator.pop(context);
+                        _showSuccess('Payment recorded successfully.');
+                        _fetchBookings(refresh: true);
+                      } else {
+                        final msg = jsonDecode(response.body)['message'] ?? 'Failed to record payment.';
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(msg), backgroundColor: Colors.red),
+                        );
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  },
+                  child: const Text('Record'),
+                ),
+              ],
             );
           },
         );
@@ -6198,20 +6337,31 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   String? _razorpayKey;
   bool _configLoading = true;
 
-  // Coupon state
-  final TextEditingController _couponController = TextEditingController();
-  bool _verifyingCoupon = false;
-  Map<String, dynamic>? _appliedCoupon;
-  String? _couponError;
+  // Preview & Coupon state
+  bool _previewLoading = true;
+  Map<String, dynamic>? _previewData;
+  final Map<String, String> _dateCoupons = {};
+  final Map<String, TextEditingController> _couponControllers = {};
+  final Map<String, String?> _couponErrors = {};
 
   // User Profile
   String _userName = '';
   String _userEmail = '';
   String _userMobile = '';
+  List<String> _userRoles = [];
 
   // Payment Selection
-  String _paymentMethod = 'offline'; // 'offline', 'razorpay_full', or 'razorpay_part'
+  String _paymentMethod = 'offline';
   bool _submittingBooking = false;
+
+  // Book on behalf (manager)
+  bool _bookOnBehalf = false;
+  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _amountReceivedController = TextEditingController();
+  bool _searchingCustomers = false;
+  List<dynamic> _searchedCustomers = [];
+  Map<String, dynamic>? _selectedCustomer;
+  double _amountReceived = 0.0;
 
   @override
   void initState() {
@@ -6221,11 +6371,22 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     
+    // Initialize date coupon controllers
+    for (final date in widget.dates) {
+      _couponControllers[date] = TextEditingController();
+      _couponErrors[date] = null;
+    }
+
+    _amountReceivedController.addListener(() {
+      final text = _amountReceivedController.text;
+      setState(() {
+        _amountReceived = double.tryParse(text) ?? 0.0;
+      });
+    });
+
     _fetchConfig();
     _loadUserProfile();
     
-    // Set default payment method based on turf configuration
-    final bool isPayAtLocation = widget.turf['is_pay_at_location_active'] ?? true;
     final bool isOnlinePayment = widget.turf['is_online_payment_active'] ?? false;
     final bool isPartPayment = widget.turf['is_part_payment_active'] ?? false;
 
@@ -6233,8 +6394,6 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       _paymentMethod = 'razorpay_full';
     } else if (isPartPayment) {
       _paymentMethod = 'razorpay_part';
-    } else if (isPayAtLocation) {
-      _paymentMethod = 'offline';
     } else {
       _paymentMethod = 'offline';
     }
@@ -6243,7 +6402,11 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   @override
   void dispose() {
     _razorpay.clear();
-    _couponController.dispose();
+    _searchController.dispose();
+    _amountReceivedController.dispose();
+    for (final controller in _couponControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -6270,11 +6433,130 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       _userName = prefs.getString('user_name') ?? '';
       _userEmail = prefs.getString('user_email') ?? '';
       _userMobile = prefs.getString('user_mobile') ?? '';
+      _userRoles = prefs.getStringList('user_roles') ?? [];
     });
+    _fetchPreview();
+  }
+
+  Future<void> _fetchPreview() async {
+    setState(() {
+      _previewLoading = true;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/turfs/${widget.turf['id']}/bookings/preview'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+        body: jsonEncode({
+          'slot_ids': widget.selectedSlotIds,
+          'booking_dates': widget.dates,
+          'booking_type': widget.bookingType.name,
+          'coupons': _dateCoupons,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _previewData = data;
+          _previewLoading = false;
+        });
+      } else {
+        setState(() {
+          _previewLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _previewLoading = false;
+      });
+      debugPrint('Error fetching preview: $e');
+    }
+  }
+
+  Future<void> _applyCouponForDate(String date, String code) async {
+    if (code.isEmpty) return;
+    setState(() {
+      _couponErrors[date] = null;
+    });
+    _dateCoupons[date] = code;
+    await _fetchPreview();
+    
+    if (_previewData != null) {
+      final List datesList = _previewData!['dates'] ?? [];
+      final dateObj = datesList.firstWhere((d) => d['date'] == date, orElse: () => null);
+      if (dateObj != null && dateObj['coupon'] != null) {
+        final error = dateObj['coupon']['error'];
+        if (error != null) {
+          setState(() {
+            _couponErrors[date] = error;
+            _dateCoupons.remove(date);
+          });
+          await _fetchPreview();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Coupon applied to $date successfully!')),
+          );
+        }
+      }
+    }
+  }
+
+  void _removeCouponForDate(String date) async {
+    setState(() {
+      _dateCoupons.remove(date);
+      if (_couponControllers[date] != null) {
+        _couponControllers[date]!.clear();
+      }
+      _couponErrors[date] = null;
+    });
+    await _fetchPreview();
+  }
+
+  Future<void> _searchCustomers(String query) async {
+    if (query.trim().length < 2) return;
+    setState(() {
+      _searchingCustomers = true;
+      _searchedCustomers = [];
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/users/search?query=${Uri.encodeComponent(query)}'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _searchedCustomers = data;
+          _searchingCustomers = false;
+        });
+      } else {
+        setState(() {
+          _searchingCustomers = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _searchingCustomers = false;
+      });
+      debugPrint('Error searching customers: $e');
+    }
   }
 
   // Pricing calculations
   double get _subtotal {
+    if (_previewData != null) {
+      return (_previewData!['subtotal'] as num).toDouble();
+    }
     double totalSlotsPrice = 0.0;
     for (var slot in widget.selectedSlots) {
       final priceVal = slot['price'];
@@ -6286,106 +6568,36 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   }
 
   double get _discount {
-    if (_appliedCoupon == null) return 0.0;
-    final type = _appliedCoupon!['discount_type'];
-    final value = _appliedCoupon!['discount_value'] as double;
-    final maxDiscount = _appliedCoupon!['max_discount_amount'] as double?;
-
-    double calculated = 0.0;
-    if (type == 'fixed') {
-      calculated = value;
-    } else {
-      calculated = _subtotal * (value / 100);
+    if (_previewData != null) {
+      return (_previewData!['discount'] as num).toDouble();
     }
-
-    if (maxDiscount != null && calculated > maxDiscount) {
-      calculated = maxDiscount;
-    }
-
-    return calculated > _subtotal ? _subtotal : calculated;
+    return 0.0;
   }
 
-  double get _totalToPay => _subtotal - _discount;
+  double get _totalToPay {
+    if (_previewData != null) {
+      return (_previewData!['total_amount'] as num).toDouble();
+    }
+    return _subtotal;
+  }
 
   double get _payableNowAmount {
-    if (_paymentMethod == 'razorpay_part') {
-      final String partType = widget.turf['part_payment_type'] ?? 'percentage';
-      final double partVal = widget.turf['part_payment_value'] != null
-          ? double.parse(widget.turf['part_payment_value'].toString())
-          : 0.0;
-      
-      if (partType == 'percentage') {
-        return _totalToPay * (partVal / 100);
-      } else {
-        return partVal > _totalToPay ? _totalToPay : partVal;
+    if (_bookOnBehalf && _selectedCustomer != null) {
+      return _amountReceived;
+    }
+    if (_previewData != null) {
+      if (_paymentMethod == 'razorpay_part') {
+        return (_previewData!['payable_now'] as num).toDouble();
+      } else if (_paymentMethod == 'offline') {
+        return 0.0;
       }
-    } else if (_paymentMethod == 'offline') {
-      return 0.0;
+      return _totalToPay;
     }
     return _totalToPay;
   }
 
   double get _remainingAmount {
     return _totalToPay - _payableNowAmount;
-  }
-
-  Future<void> _verifyCoupon() async {
-    final code = _couponController.text.trim();
-    if (code.isEmpty) return;
-
-    setState(() {
-      _verifyingCoupon = true;
-      _couponError = null;
-    });
-
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/coupons/verify'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer ${widget.token}',
-        },
-        body: jsonEncode({
-          'code': code,
-          'turf_id': widget.turf['id'],
-          'slot_count': widget.selectedSlotIds.length,
-          'booking_dates': widget.dates,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          _appliedCoupon = data['coupon'];
-          _verifyingCoupon = false;
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Coupon applied successfully!')),
-          );
-        }
-      } else {
-        final errorMsg = jsonDecode(response.body)['message'] ?? 'Invalid coupon code.';
-        setState(() {
-          _couponError = errorMsg;
-          _verifyingCoupon = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _couponError = 'Failed to verify coupon. Please try again.';
-        _verifyingCoupon = false;
-      });
-    }
-  }
-
-  void _removeCoupon() {
-    setState(() {
-      _appliedCoupon = null;
-      _couponController.clear();
-      _couponError = null;
-    });
   }
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) {
@@ -6403,22 +6615,27 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   }
 
   void _handleExternalWallet(ExternalWalletResponse response) {
-    // Optional implementation
   }
 
   Future<void> _processBookingFlow() async {
     if (_submittingBooking) return;
 
+    if (_bookOnBehalf && _selectedCustomer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please search and select a customer first.')),
+      );
+      return;
+    }
+
     setState(() {
       _submittingBooking = true;
     });
 
-    if (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part') {
-      // Launch Razorpay
-      final keyToUse = _razorpayKey ?? 'rzp_test_5yX1f8e1F8e1F8'; // fallback
+    if (!_bookOnBehalf && (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part')) {
+      final keyToUse = _razorpayKey ?? 'rzp_test_5yX1f8e1F8e1F8';
       final options = {
         'key': keyToUse,
-        'amount': (_payableNowAmount * 100).toInt(), // amount in paise
+        'amount': (_payableNowAmount * 100).toInt(),
         'name': widget.turf['name'] ?? 'Turf Booking',
         'description': 'Booking for ${widget.turf['name']}',
         'prefill': {
@@ -6440,7 +6657,6 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
         );
       }
     } else {
-      // Pay at location (offline)
       _completeBooking(null);
     }
   }
@@ -6450,6 +6666,29 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     final navigator = Navigator.of(context);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
+    final Map<String, String> appliedCoupons = {};
+    _dateCoupons.forEach((date, code) {
+      if (code.isNotEmpty) {
+        appliedCoupons[date] = code;
+      }
+    });
+
+    final Map<String, dynamic> requestBody = {
+      'slot_ids': widget.selectedSlotIds,
+      'booking_dates': widget.dates,
+      'booking_type': widget.bookingType.name,
+      'coupons': appliedCoupons,
+    };
+
+    if (_bookOnBehalf && _selectedCustomer != null) {
+      requestBody['customer_id'] = _selectedCustomer!['id'];
+      requestBody['payment_method'] = _paymentMethod;
+      requestBody['amount_received'] = _amountReceived;
+    } else {
+      requestBody['payment_method'] = (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part') ? 'App' : 'offline';
+      requestBody['razorpay_payment_id'] = paymentId;
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/turfs/$turfId/bookings'),
@@ -6458,14 +6697,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
           'Accept': 'application/json',
           'Authorization': 'Bearer ${widget.token}',
         },
-        body: jsonEncode({
-          'slot_ids': widget.selectedSlotIds,
-          'booking_dates': widget.dates,
-          'booking_type': widget.bookingType.name,
-          'coupon_code': _appliedCoupon != null ? _appliedCoupon!['code'] : null,
-          'payment_method': (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part') ? 'razorpay' : 'offline',
-          'razorpay_payment_id': paymentId,
-        }),
+        body: jsonEncode(requestBody),
       );
 
       if (response.statusCode == 200) {
@@ -6484,11 +6716,13 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
               ],
             ),
             content: Text(
-              _paymentMethod == 'razorpay_full'
-                  ? 'Your payment was successful and booking is confirmed!'
-                  : _paymentMethod == 'razorpay_part'
-                      ? 'Your deposit payment was successful and booking is confirmed! Please pay the remaining balance at the venue.'
-                      : 'Your booking is confirmed! Please pay at the location.',
+              _bookOnBehalf && _selectedCustomer != null
+                  ? 'Booking for ${_selectedCustomer!['name']} is confirmed! Initial payment of ₹${_amountReceived.toStringAsFixed(0)} recorded.'
+                  : _paymentMethod == 'razorpay_full'
+                      ? 'Your payment was successful and booking is confirmed!'
+                      : _paymentMethod == 'razorpay_part'
+                          ? 'Your deposit payment was successful and booking is confirmed! Please pay the remaining balance at the venue.'
+                          : 'Your booking is confirmed! Please pay at the location.',
             ),
             actions: [
               ElevatedButton(
@@ -6501,7 +6735,6 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
           ),
         );
         
-        // Pop back to MainScreen and show the Bookings tab
         navigator.pop('show_bookings');
       } else {
         final errorMsg = jsonDecode(response.body)['message'] ?? 'Booking failed. Please try again.';
@@ -6517,11 +6750,12 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     final bool isPayAtLocation = widget.turf['is_pay_at_location_active'] ?? true;
     final bool isOnlinePayment = widget.turf['is_online_payment_active'] ?? false;
     final bool isPartPayment = widget.turf['is_part_payment_active'] ?? false;
+
+    final bool isManagerOrAdmin = _userRoles.any((r) => ['saas-admin', 'turf-admin', 'manager'].contains(r));
 
     return Scaffold(
       appBar: AppBar(
@@ -6530,7 +6764,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
         backgroundColor: theme.colorScheme.primary,
         foregroundColor: Colors.white,
       ),
-      body: _configLoading
+      body: (_configLoading || _previewLoading)
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
@@ -6603,253 +6837,427 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Dates Card
-                  Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-                              SizedBox(width: 8),
-                              Text(
-                                'Booking Dates',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 24),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: widget.dates.map((d) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: isDark ? Colors.grey[800] : Colors.grey[200],
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  d,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Slots Card
-                  Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.access_time, size: 18, color: Colors.grey),
-                              SizedBox(width: 8),
-                              Text(
-                                'Selected Slots',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 24),
-                          ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: widget.selectedSlots.length,
-                            separatorBuilder: (context, index) => const Divider(height: 16),
-                            itemBuilder: (context, index) {
-                              final slot = widget.selectedSlots[index];
-                              return Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    slot['time_label'] ?? '',
-                                    style: const TextStyle(fontWeight: FontWeight.w500),
-                                  ),
-                                  Text(
-                                    '₹${double.parse(slot['price'].toString()).toStringAsFixed(0)}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Coupon Card
-                  Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.local_offer, size: 18, color: Colors.grey),
-                              SizedBox(width: 8),
-                              Text(
-                                'Apply Coupon',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 24),
-                          if (_appliedCoupon == null) ...[
+                  // Admin / Manager book on behalf section
+                  if (isManagerOrAdmin) ...[
+                    Card(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.15),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Row(
                               children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _couponController,
-                                    decoration: InputDecoration(
-                                      hintText: 'Enter coupon code',
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                      errorText: _couponError,
-                                    ),
-                                    style: const TextStyle(fontSize: 14),
-                                    textCapitalization: TextCapitalization.characters,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                ElevatedButton(
-                                  onPressed: _verifyingCoupon ? null : _verifyCoupon,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: theme.colorScheme.primary,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                  ),
-                                  child: _verifyingCoupon
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                        )
-                                      : const Text('Apply'),
+                                Icon(Icons.admin_panel_settings, color: theme.colorScheme.primary),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Owner / Manager Dashboard',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                 ),
                               ],
                             ),
-                          ] else ...[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                            const Divider(height: 24),
+                            SwitchListTile(
+                              title: const Text('Book on behalf of Customer'),
+                              subtitle: const Text('Select another user to associate this booking with'),
+                              value: _bookOnBehalf,
+                              contentPadding: EdgeInsets.zero,
+                              activeColor: theme.colorScheme.primary,
+                              onChanged: (val) {
+                                setState(() {
+                                  _bookOnBehalf = val;
+                                  if (!val) {
+                                    _selectedCustomer = null;
+                                    _searchController.clear();
+                                    _searchedCustomers = [];
+                                    _amountReceivedController.clear();
+                                    _amountReceived = 0.0;
+                                    _paymentMethod = 'offline';
+                                  } else {
+                                    _paymentMethod = 'Cash'; // Default offline method for manager
+                                  }
+                                });
+                              },
+                            ),
+                            if (_bookOnBehalf) ...[
+                              const SizedBox(height: 12),
+                              if (_selectedCustomer == null) ...[
+                                Row(
                                   children: [
-                                    Text(
-                                      'Code: ${_appliedCoupon!['code']}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _searchController,
+                                        decoration: InputDecoration(
+                                          hintText: 'Search customer by Name, Email, Mobile',
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      _appliedCoupon!['discount_type'] == 'fixed'
-                                          ? 'Flat ₹${_appliedCoupon!['discount_value']} discount applied'
-                                          : '${_appliedCoupon!['discount_value']}% discount applied',
-                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    const SizedBox(width: 12),
+                                    ElevatedButton(
+                                      onPressed: () => _searchCustomers(_searchController.text),
+                                      style: ElevatedButton.styleFrom(
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      child: const Text('Search'),
                                     ),
                                   ],
                                 ),
-                                TextButton(
-                                  onPressed: _removeCoupon,
-                                  child: const Text('Remove', style: TextStyle(color: Colors.red)),
+                                if (_searchingCustomers)
+                                  const Padding(
+                                    padding: EdgeInsets.all(8.0),
+                                    child: Center(child: CircularProgressIndicator()),
+                                  ),
+                                if (_searchedCustomers.isNotEmpty)
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 8),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey[300]!),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    constraints: const BoxConstraints(maxHeight: 150),
+                                    child: ListView.builder(
+                                      shrinkWrap: true,
+                                      itemCount: _searchedCustomers.length,
+                                      itemBuilder: (context, index) {
+                                        final c = _searchedCustomers[index];
+                                        return ListTile(
+                                          title: Text(c['name'] ?? ''),
+                                          subtitle: Text('${c['mobile'] ?? ''} | ${c['email'] ?? ''}'),
+                                          onTap: () {
+                                            setState(() {
+                                              _selectedCustomer = c;
+                                              _searchedCustomers = [];
+                                              _searchController.clear();
+                                            });
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ),
+                              ] else ...[
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Customer: ${_selectedCustomer!['name']}',
+                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text('${_selectedCustomer!['mobile']} | ${_selectedCustomer!['email']}'),
+                                        ],
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.close, color: Colors.red),
+                                        onPressed: () {
+                                          setState(() {
+                                            _selectedCustomer = null;
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Payment Method (Offline)',
+                                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: ['Cash', 'UPI', 'Other'].map((method) {
+                                    return Expanded(
+                                      child: RadioListTile<String>(
+                                        title: Text(method, style: const TextStyle(fontSize: 12)),
+                                        value: method,
+                                        groupValue: _paymentMethod,
+                                        contentPadding: EdgeInsets.zero,
+                                        activeColor: theme.colorScheme.primary,
+                                        onChanged: (val) {
+                                          if (val != null) {
+                                            setState(() {
+                                              _paymentMethod = val;
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: _amountReceivedController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Amount Received (₹)',
+                                    hintText: 'Enter amount collected now',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                ),
+                              ],
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Session detail list with date-wise coupons
+                  Text(
+                    'Booking Dates & Slots',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  ...?_previewData?['dates']?.map<Widget>((dateData) {
+                    final String dateStr = dateData['date'] ?? '';
+                    final String dayLabel = dateData['day_name'] ?? '';
+                    final List slotsList = dateData['slots'] ?? [];
+                    final dateDiscount = (dateData['discount'] as num).toDouble();
+                    final dateNet = (dateData['net_amount'] as num).toDouble();
+
+                    final couponApplied = dateData['coupon'] != null && dateData['coupon']['applied'] == true;
+                    final couponError = dateData['coupon'] != null ? dateData['coupon']['error'] as String? : null;
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Date header
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '$dayLabel, $dateStr',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '₹${dateNet.toStringAsFixed(0)}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.primary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                            const Divider(height: 20),
 
-                  // Payment Options Card
-                  Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.payment, size: 18, color: Colors.grey),
-                              SizedBox(width: 8),
-                              Text(
-                                'Payment Method',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            // Slots booked on this date
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: slotsList.length,
+                              itemBuilder: (context, idx) {
+                                final s = slotsList[idx];
+                                final isBooked = s['status'] == 'booked';
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            isBooked ? Icons.lock : Icons.check_circle_outline,
+                                            size: 14,
+                                            color: isBooked ? Colors.red : Colors.green,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            s['time_label'] ?? '',
+                                            style: TextStyle(
+                                              decoration: isBooked ? TextDecoration.lineThrough : null,
+                                              color: isBooked ? Colors.grey : null,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Text(
+                                        isBooked
+                                            ? 'Unavailable (No Charge)'
+                                            : '₹${(s['price'] as num).toDouble().toStringAsFixed(0)}',
+                                        style: TextStyle(
+                                          fontWeight: isBooked ? FontWeight.normal : FontWeight.bold,
+                                          color: isBooked ? Colors.red : null,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            const Divider(height: 24),
+
+                            // Date-wise Coupon application
+                            if (!couponApplied) ...[
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _couponControllers[dateStr],
+                                      decoration: InputDecoration(
+                                        hintText: 'Enter coupon for this date',
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                        errorText: couponError ?? _couponErrors[dateStr],
+                                      ),
+                                      style: const TextStyle(fontSize: 13),
+                                      textCapitalization: TextCapitalization.characters,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      final code = _couponControllers[dateStr]?.text.trim().toUpperCase() ?? '';
+                                      _applyCouponForDate(dateStr, code);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: theme.colorScheme.primary,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    child: const Text('Apply'),
+                                  ),
+                                ],
+                              ),
+                            ] else ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.local_offer, color: Colors.green, size: 16),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Coupon applied: ${dateData['coupon']['code']}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 13),
+                                      ),
+                                    ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '-₹${dateDiscount.toStringAsFixed(0)}',
+                                        style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      TextButton(
+                                        onPressed: () => _removeCouponForDate(dateStr),
+                                        child: const Text('Remove', style: TextStyle(color: Colors.red, fontSize: 12)),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ],
-                          ),
-                          const Divider(height: 24),
-                          if (isPayAtLocation)
-                            RadioListTile<String>(
-                              title: const Text('Pay at Location'),
-                              subtitle: const Text('Full payment will be paid at location'),
-                              value: 'offline',
-                              groupValue: _paymentMethod,
-                              onChanged: (val) {
-                                if (val != null) setState(() => _paymentMethod = val);
-                              },
-                              activeColor: theme.colorScheme.primary,
-                              contentPadding: EdgeInsets.zero,
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+
+                  const SizedBox(height: 16),
+
+                  // Customer Payment Options (only visible if not manager booking for someone else)
+                  if (!_bookOnBehalf) ...[
+                    Card(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.payment, size: 18, color: Colors.grey),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Payment Method',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                              ],
                             ),
-                          if (isOnlinePayment)
-                            RadioListTile<String>(
-                              title: const Text('Pay Online'),
-                              subtitle: const Text('Pay full amount securely via Credit Card, Netbanking, or UPI'),
-                              value: 'razorpay_full',
-                              groupValue: _paymentMethod,
-                              onChanged: (val) {
-                                if (val != null) setState(() => _paymentMethod = val);
-                              },
-                              activeColor: theme.colorScheme.primary,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          if (isPartPayment)
-                            RadioListTile<String>(
-                              title: const Text('Part Payment'),
-                              subtitle: const Text('Accepts part payment online, remaining will be taken at the turf'),
-                              value: 'razorpay_part',
-                              groupValue: _paymentMethod,
-                              onChanged: (val) {
-                                if (val != null) setState(() => _paymentMethod = val);
-                              },
-                              activeColor: theme.colorScheme.primary,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          if (!isPayAtLocation && !isOnlinePayment && !isPartPayment)
-                            RadioListTile<String>(
-                              title: const Text('Pay at Location'),
-                              subtitle: const Text('Full payment will be paid at location'),
-                              value: 'offline',
-                              groupValue: _paymentMethod,
-                              onChanged: (val) {
-                                if (val != null) setState(() => _paymentMethod = val);
-                              },
-                              activeColor: theme.colorScheme.primary,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                        ],
+                            const Divider(height: 24),
+                            if (isPayAtLocation)
+                              RadioListTile<String>(
+                                title: const Text('Pay at Location'),
+                                subtitle: const Text('Full payment will be paid at location'),
+                                value: 'offline',
+                                groupValue: _paymentMethod,
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _paymentMethod = val);
+                                },
+                                activeColor: theme.colorScheme.primary,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            if (isOnlinePayment)
+                              RadioListTile<String>(
+                                title: const Text('Pay Online'),
+                                subtitle: const Text('Pay full amount securely via Credit Card, Netbanking, or UPI'),
+                                value: 'razorpay_full',
+                                groupValue: _paymentMethod,
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _paymentMethod = val);
+                                },
+                                activeColor: theme.colorScheme.primary,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            if (isPartPayment)
+                              RadioListTile<String>(
+                                title: const Text('Part Payment'),
+                                subtitle: const Text('Accepts part payment online, remaining will be taken at the turf'),
+                                value: 'razorpay_part',
+                                groupValue: _paymentMethod,
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _paymentMethod = val);
+                                },
+                                activeColor: theme.colorScheme.primary,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            if (!isPayAtLocation && !isOnlinePayment && !isPartPayment)
+                              RadioListTile<String>(
+                                title: const Text('Pay at Location'),
+                                subtitle: const Text('Full payment will be paid at location'),
+                                value: 'offline',
+                                groupValue: _paymentMethod,
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _paymentMethod = val);
+                                },
+                                activeColor: theme.colorScheme.primary,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                  ],
 
                   // Pricing details card
                   Card(
@@ -6887,15 +7295,17 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                               ),
                             ],
                           ),
-                          if (_paymentMethod == 'razorpay_part' || _paymentMethod == 'offline') ...[
+                          if (_bookOnBehalf || _paymentMethod == 'razorpay_part' || _paymentMethod == 'offline') ...[
                             const Divider(height: 24),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  _paymentMethod == 'offline'
-                                      ? 'Payable Now'
-                                      : 'Payable Now (Online Deposit)',
+                                  _bookOnBehalf
+                                      ? 'Collected Amount'
+                                      : _paymentMethod == 'offline'
+                                          ? 'Payable Now'
+                                          : 'Payable Now (Online Deposit)',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: theme.colorScheme.primary),
                                 ),
                                 Text(
@@ -6909,7 +7319,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text(
-                                  'Remaining Balance (Pay offline)',
+                                  'Remaining Balance',
                                   style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500),
                                 ),
                                 Text(
@@ -6944,7 +7354,11 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                               child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                             )
                           : Text(
-                              (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part') ? 'Pay & Confirm' : 'Confirm Booking',
+                              _bookOnBehalf
+                                  ? 'Record & Confirm Booking'
+                                  : (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part')
+                                      ? 'Pay & Confirm'
+                                      : 'Confirm Booking',
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             ),
                     ),
