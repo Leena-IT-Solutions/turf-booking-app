@@ -3404,6 +3404,58 @@ class _MainScreenState extends State<MainScreen> {
                     }).toList(),
                   ),
                   const SizedBox(height: 24),
+                  if (bookingDate['payments'] != null && List<dynamic>.from(bookingDate['payments']).isNotEmpty) ...[
+                    const Divider(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Payment History',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Column(
+                      children: List<dynamic>.from(bookingDate['payments']).map<Widget>((payment) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "${payment['payment_method']}",
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    "${payment['paid_at']}",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                "₹${(payment['amount'] as num).toStringAsFixed(0)}",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: Color(0xFF10B981),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                   const Divider(),
                   const SizedBox(height: 16),
                   Row(
