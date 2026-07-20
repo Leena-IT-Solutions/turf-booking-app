@@ -7228,16 +7228,21 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Customer: ${_selectedCustomer!['name']}',
-                                            style: const TextStyle(fontWeight: FontWeight.bold),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text('${_selectedCustomer!['mobile']} | ${_selectedCustomer!['email']}'),
-                                        ],
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Customer: ${_selectedCustomer!['name']}',
+                                              style: const TextStyle(fontWeight: FontWeight.bold),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${_selectedCustomer!['mobile']} | ${_selectedCustomer!['email']}',
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                       IconButton(
                                         icon: const Icon(Icons.close, color: Colors.red),
