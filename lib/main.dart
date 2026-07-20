@@ -875,11 +875,6 @@ class _MainScreenState extends State<MainScreen> {
     if (mounted) {
       setState(() {
         _userRoles = prefs.getStringList('user_roles') ?? [];
-        if (_userRoles.any((r) => r == 'turf-admin' || r == 'saas-admin')) {
-          _currentIndex = 5;
-        } else if (_userRoles.any((r) => r == 'manager')) {
-          _currentIndex = 4;
-        }
       });
     }
   }
