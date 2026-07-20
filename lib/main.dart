@@ -54,6 +54,8 @@ class _MyAppState extends State<MyApp> {
     await prefs.setString('user_mobile', user['mobile'] ?? '');
     final roles = List<String>.from(user['roles'] ?? []);
     await prefs.setStringList('user_roles', roles);
+    final manageable = List<dynamic>.from(user['manageable_turf_ids'] ?? []).map((t) => t.toString()).toList();
+    await prefs.setStringList('manageable_turf_ids', manageable);
 
     setState(() {
       _token = token;
@@ -865,12 +867,14 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0; // 0: Home, 1: Bookings, 2: Support, 3: Profile
   bool _profileLoading = false;
   List<String> _userRoles = [];
+  List<String> _manageableTurfIds = [];
 
   Future<void> _loadUserRoles() async {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
         _userRoles = prefs.getStringList('user_roles') ?? [];
+        _manageableTurfIds = prefs.getStringList('manageable_turf_ids') ?? [];
       });
     }
   }
@@ -3259,7 +3263,9 @@ class _MainScreenState extends State<MainScreen> {
     final isConfirmed = bookingDate['status'] == 'Confirmed';
     final isPaid = bookingDate['date_payment_status'] == 'Paid';
     final bookingType = bookingDate['booking_type'] ?? 'day';
-    final bool isManagerOrAdmin = _userRoles.any((r) => ['turf-admin', 'manager'].contains(r));
+    final String bookingTurfId = bookingDate['turf_id']?.toString() ?? '';
+    final bool isManagerOrAdmin = _userRoles.any((r) => ['turf-admin', 'manager'].contains(r)) &&
+        _manageableTurfIds.contains(bookingTurfId);
 
     String formattedBookingType = 'Day Session';
     if (bookingType == 'long') {
@@ -7338,6 +7344,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   String _userEmail = '';
   String _userMobile = '';
   List<String> _userRoles = [];
+  List<String> _manageableTurfIds = [];
 
   // Payment Selection
   String _paymentMethod = 'offline';
@@ -7425,6 +7432,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       _userEmail = prefs.getString('user_email') ?? '';
       _userMobile = prefs.getString('user_mobile') ?? '';
       _userRoles = prefs.getStringList('user_roles') ?? [];
+      _manageableTurfIds = prefs.getStringList('manageable_turf_ids') ?? [];
     });
     _fetchPreview();
   }
@@ -7923,7 +7931,9 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     final bool isOnlinePayment = widget.turf['is_online_payment_active'] ?? false;
     final bool isPartPayment = widget.turf['is_part_payment_active'] ?? false;
 
-    final bool isManagerOrAdmin = _userRoles.any((r) => ['turf-admin', 'manager'].contains(r));
+    final String turfId = widget.turf['id'].toString();
+    final bool isManagerOrAdmin = _userRoles.any((r) => ['turf-admin', 'manager'].contains(r)) &&
+        _manageableTurfIds.contains(turfId);
 
     return Scaffold(
       appBar: AppBar(
