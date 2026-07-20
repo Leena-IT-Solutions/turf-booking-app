@@ -5851,6 +5851,28 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
 
   double get _totalToPay => _subtotal - _discount;
 
+  double get _payableNowAmount {
+    if (widget.turf['is_part_payment_active'] == true && _paymentMethod == 'razorpay') {
+      final String partType = widget.turf['part_payment_type'] ?? 'percentage';
+      final double partVal = widget.turf['part_payment_value'] != null
+          ? double.parse(widget.turf['part_payment_value'].toString())
+          : 0.0;
+      
+      if (partType == 'percentage') {
+        return _totalToPay * (partVal / 100);
+      } else {
+        return partVal > _totalToPay ? _totalToPay : partVal;
+      }
+    } else if (_paymentMethod == 'offline') {
+      return 0.0;
+    }
+    return _totalToPay;
+  }
+
+  double get _remainingAmount {
+    return _totalToPay - _payableNowAmount;
+  }
+
   Future<void> _verifyCoupon() async {
     final code = _couponController.text.trim();
     if (code.isEmpty) return;
@@ -5940,7 +5962,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       final keyToUse = _razorpayKey ?? 'rzp_test_5yX1f8e1F8e1F8'; // fallback
       final options = {
         'key': keyToUse,
-        'amount': (_totalToPay * 100).toInt(), // amount in paise
+        'amount': (_payableNowAmount * 100).toInt(), // amount in paise
         'name': widget.turf['name'] ?? 'Turf Booking',
         'description': 'Booking for ${widget.turf['name']}',
         'prefill': {
@@ -6331,8 +6353,12 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                             ),
                           if (isOnlinePayment)
                             RadioListTile<String>(
-                              title: const Text('Pay Online'),
-                              subtitle: const Text('Pay securely via Credit Card, Netbanking, or UPI'),
+                              title: Text(widget.turf['is_part_payment_active'] == true
+                                  ? 'Pay Deposit Online'
+                                  : 'Pay Online'),
+                              subtitle: Text(widget.turf['is_part_payment_active'] == true
+                                  ? 'Pay only deposit amount upfront online'
+                                  : 'Pay securely via Credit Card, Netbanking, or UPI'),
                               value: 'razorpay',
                               groupValue: _paymentMethod,
                               onChanged: (val) {
@@ -6388,13 +6414,45 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              const Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                               Text(
                                 '₹${_totalToPay.toStringAsFixed(2)}',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: theme.colorScheme.primary),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                             ],
                           ),
+                          if (widget.turf['is_part_payment_active'] == true || _paymentMethod == 'offline') ...[
+                            const Divider(height: 24),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _paymentMethod == 'offline'
+                                      ? 'Payable Now'
+                                      : 'Payable Now (Online Deposit)',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: theme.colorScheme.primary),
+                                ),
+                                Text(
+                                  '₹${_payableNowAmount.toStringAsFixed(2)}',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: theme.colorScheme.primary),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Remaining Balance (Pay offline)',
+                                  style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500),
+                                ),
+                                Text(
+                                  '₹${_remainingAmount.toStringAsFixed(2)}',
+                                  style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
