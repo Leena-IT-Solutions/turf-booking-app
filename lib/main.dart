@@ -875,6 +875,11 @@ class _MainScreenState extends State<MainScreen> {
     if (mounted) {
       setState(() {
         _userRoles = prefs.getStringList('user_roles') ?? [];
+        if (_userRoles.any((r) => r == 'turf-admin' || r == 'saas-admin')) {
+          _currentIndex = 5;
+        } else if (_userRoles.any((r) => r == 'manager')) {
+          _currentIndex = 4;
+        }
       });
     }
   }
@@ -912,6 +917,15 @@ class _MainScreenState extends State<MainScreen> {
   bool _hasMoreBookings = true;
   bool _bookingsLoadingMore = false;
   final ScrollController _bookingsScrollController = ScrollController();
+
+  // Client Booking Screen state variables
+  DateTime _clientBookingSelectedDate = DateTime.now();
+  List<dynamic> _clientBookings = [];
+  bool _clientBookingsLoading = false;
+
+  // Dashboard Screen state variables
+  Map<String, dynamic>? _dashboardStats;
+  bool _dashboardStatsLoading = false;
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -982,6 +996,86 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  Future<void> _fetchClientBookings() async {
+    if (mounted) {
+      setState(() {
+        _clientBookingsLoading = true;
+        _clientBookings = [];
+      });
+    }
+
+    try {
+      final dateStr = "${_clientBookingSelectedDate.year}-${_clientBookingSelectedDate.month.toString().padLeft(2, '0')}-${_clientBookingSelectedDate.day.toString().padLeft(2, '0')}";
+      final response = await http.get(
+        Uri.parse('$_baseUrl/bookings?date=$dateStr'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            _clientBookings = List<dynamic>.from(data['data'] ?? []);
+            _clientBookingsLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() => _clientBookingsLoading = false);
+          _showError('Failed to load client bookings.');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _clientBookingsLoading = false);
+        _showError('Network error. Failed to load client bookings.');
+      }
+    }
+  }
+
+  Future<void> _fetchDashboardStats() async {
+    if (mounted) {
+      setState(() {
+        _dashboardStatsLoading = true;
+      });
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/dashboard/stats'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            _dashboardStats = data;
+            _dashboardStatsLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() => _dashboardStatsLoading = false);
+          _showError('Failed to load dashboard stats.');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _dashboardStatsLoading = false);
+        _showError('Network error. Failed to load dashboard stats.');
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -999,6 +1093,8 @@ class _MainScreenState extends State<MainScreen> {
     _getCurrentLocation();
     _fetchTurfs();
     _fetchBookings();
+    _fetchClientBookings();
+    _fetchDashboardStats();
   }
 
   void _startSliderTimer() {
@@ -2192,6 +2288,10 @@ class _MainScreenState extends State<MainScreen> {
         return _buildSupportView();
       case 3:
         return _buildProfileView();
+      case 4:
+        return _buildClientBookingView();
+      case 5:
+        return _buildDashboardView();
       default:
         return _buildHomeView();
     }
@@ -2207,6 +2307,10 @@ class _MainScreenState extends State<MainScreen> {
         return 'Customer Support';
       case 3:
         return 'My Profile';
+      case 4:
+        return 'Client Bookings';
+      case 5:
+        return 'Turf Admin Dashboard';
       default:
         return 'Turf Booking';
     }
@@ -2296,6 +2400,29 @@ class _MainScreenState extends State<MainScreen> {
                       setState(() => _currentIndex = 3);
                     },
                   ),
+                  if (_userRoles.any((r) => r == 'turf-admin' || r == 'saas-admin' || r == 'manager')) ...[
+                    const Divider(height: 1),
+                    if (_userRoles.any((r) => r == 'turf-admin' || r == 'saas-admin'))
+                      ListTile(
+                        leading: const Icon(Icons.dashboard_outlined),
+                        title: const Text('Dashboard'),
+                        selected: _currentIndex == 5,
+                        onTap: () {
+                          Navigator.pop(context);
+                          setState(() => _currentIndex = 5);
+                        },
+                      ),
+                    if (_userRoles.any((r) => r == 'turf-admin' || r == 'saas-admin' || r == 'manager'))
+                      ListTile(
+                        leading: const Icon(Icons.calendar_today_outlined),
+                        title: const Text('Client Booking'),
+                        selected: _currentIndex == 4,
+                        onTap: () {
+                          Navigator.pop(context);
+                          setState(() => _currentIndex = 4);
+                        },
+                      ),
+                  ],
                 ],
               ),
             ),
@@ -3467,6 +3594,8 @@ class _MainScreenState extends State<MainScreen> {
                         Navigator.pop(context);
                         _showSuccess('Payment recorded successfully.');
                         _fetchBookings(refresh: true);
+                        _fetchClientBookings();
+                        _fetchDashboardStats();
                       } else {
                         final msg = jsonDecode(response.body)['message'] ?? 'Failed to record payment.';
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -4131,6 +4260,487 @@ class _MainScreenState extends State<MainScreen> {
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         subtitle: Text(subtitle, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 12)),
         trailing: const Icon(Icons.chevron_right, size: 20),
+      ),
+    );
+  }
+
+  Widget _buildClientBookingView() {
+    final theme = Theme.of(context);
+
+    final dateStr = "${_clientBookingSelectedDate.day} ${[
+      "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ][_clientBookingSelectedDate.month]} ${_clientBookingSelectedDate.year}";
+
+    final dayOfWeek = [
+      "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+    ][_clientBookingSelectedDate.weekday - 1];
+
+    return Column(
+      children: [
+        // Date Selector Header Strip
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: Colors.grey.withAlpha(20)),
+            ),
+            color: theme.colorScheme.primary.withValues(alpha: 0.08),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.chevron_left, color: theme.colorScheme.primary),
+                    onPressed: () {
+                      setState(() {
+                        _clientBookingSelectedDate = _clientBookingSelectedDate.subtract(const Duration(days: 1));
+                      });
+                      _fetchClientBookings();
+                    },
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _clientBookingSelectedDate,
+                          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            _clientBookingSelectedDate = picked;
+                          });
+                          _fetchClientBookings();
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              dayOfWeek,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              dateStr,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.chevron_right, color: theme.colorScheme.primary),
+                    onPressed: () {
+                      setState(() {
+                        _clientBookingSelectedDate = _clientBookingSelectedDate.add(const Duration(days: 1));
+                      });
+                      _fetchClientBookings();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // Bookings List
+        Expanded(
+          child: _clientBookingsLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _clientBookings.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            "No bookings for this date",
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _fetchClientBookings,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        itemCount: _clientBookings.length,
+                        itemBuilder: (ctx, idx) {
+                          final bDate = _clientBookings[idx];
+                          final status = bDate['date_payment_status'] ?? 'Unpaid';
+                          
+                          Color badgeColor = Colors.red;
+                          if (status == 'Paid') {
+                            badgeColor = const Color(0xFF10B981);
+                          } else if (status == 'Partially Paid') {
+                            badgeColor = Colors.orange;
+                          }
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(color: Colors.grey.withAlpha(20)),
+                            ),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () => _showBookingDetailsBottomSheet(context, bDate),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            bDate['turf_name'] ?? 'Unknown Turf',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: badgeColor.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            status,
+                                            style: TextStyle(
+                                              color: badgeColor,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.person_outline, size: 16, color: Colors.grey[600]),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          bDate['customer_name'] ?? 'N/A',
+                                          style: const TextStyle(fontWeight: FontWeight.w500),
+                                        ),
+                                        if (bDate['customer_mobile'] != 'N/A') ...[
+                                          Text(
+                                            ' (${bDate['customer_mobile']})',
+                                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            bDate['summary_text'] ?? '',
+                                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const Divider(height: 24),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        _buildPriceColumn('Total', bDate['amount'] ?? 0.0, Colors.grey[600]!),
+                                        _buildPriceColumn('Paid', bDate['date_paid_amount'] ?? 0.0, const Color(0xFF10B981)),
+                                        _buildPriceColumn('Balance', bDate['date_balance_amount'] ?? 0.0, Colors.red),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPriceColumn(String label, dynamic value, Color valueColor) {
+    final amt = (value is num) ? value.toDouble() : double.tryParse(value.toString()) ?? 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          "₹${amt.toStringAsFixed(0)}",
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: valueColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDashboardView() {
+    if (_dashboardStatsLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_dashboardStats == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton(
+              onPressed: _fetchDashboardStats,
+              child: const Text('Retry loading stats'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final totalBookings = _dashboardStats!['total_bookings_today'] ?? 0;
+    final totalRevenue = _dashboardStats!['total_revenue_today'] ?? 0.0;
+    final activeTurfs = _dashboardStats!['active_turfs_count'] ?? 0;
+    final activeCoupons = _dashboardStats!['active_coupons_count'] ?? 0;
+    final recentBookings = List<dynamic>.from(_dashboardStats!['recent_bookings'] ?? []);
+
+    return RefreshIndicator(
+      onRefresh: _fetchDashboardStats,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Grid of Metrics
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 1.4,
+              children: [
+                _buildStatCard(
+                  title: "Today's Bookings",
+                  value: "$totalBookings",
+                  icon: Icons.calendar_month,
+                  color: Colors.blue,
+                ),
+                _buildStatCard(
+                  title: "Today's Revenue",
+                  value: "₹${(totalRevenue as num).toStringAsFixed(0)}",
+                  icon: Icons.currency_rupee,
+                  color: const Color(0xFF10B981),
+                ),
+                _buildStatCard(
+                  title: "Active Turfs",
+                  value: "$activeTurfs",
+                  icon: Icons.sports_soccer,
+                  color: Colors.purple,
+                ),
+                _buildStatCard(
+                  title: "Active Coupons",
+                  value: "$activeCoupons",
+                  icon: Icons.local_offer_outlined,
+                  color: Colors.orange,
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Recent Bookings Header
+            const Text(
+              'Recent Bookings',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            if (recentBookings.isEmpty)
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: Colors.grey.withAlpha(20)),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(24.0),
+                  child: Center(
+                    child: Text(
+                      'No recent bookings found',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: recentBookings.length,
+                itemBuilder: (ctx, idx) {
+                  final b = recentBookings[idx];
+                  final status = b['payment_status'] ?? 'Unpaid';
+                  Color statusColor = Colors.red;
+                  if (status == 'Paid') {
+                    statusColor = const Color(0xFF10B981);
+                  } else if (status == 'Partially Paid') {
+                    statusColor = Colors.orange;
+                  }
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: Colors.grey.withAlpha(20)),
+                    ),
+                    child: ListTile(
+                      onTap: () {
+                        // Switch tab and load this specific date's bookings
+                        setState(() {
+                          _currentIndex = 4;
+                          _clientBookingSelectedDate = DateTime.parse(b['date']);
+                        });
+                        _fetchClientBookings();
+                      },
+                      title: Text(
+                        b['turf_name'] ?? 'Unknown Turf',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        "${b['customer_name']} • ${b['date']}",
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            "₹${(b['amount'] as num).toStringAsFixed(0)}",
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            status,
+                            style: TextStyle(
+                              color: statusColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: Colors.grey.withAlpha(20)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
