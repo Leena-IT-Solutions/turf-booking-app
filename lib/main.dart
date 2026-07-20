@@ -4728,19 +4728,19 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                             margin: const EdgeInsets.only(right: 12),
                             decoration: BoxDecoration(
                               color: isDark 
-                                  ? Colors.green.withValues(alpha: 0.15) 
-                                  : Colors.green.withValues(alpha: 0.08),
+                                  ? const Color(0xFF1E2022) 
+                                  : Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: Colors.green.withValues(alpha: 0.35),
+                                color: Colors.green,
                                 width: 1.5,
                               ),
                               boxShadow: [
                                 BoxShadow(
                                   color: isDark 
                                       ? Colors.black26 
-                                      : Colors.green.withValues(alpha: 0.06),
-                                  blurRadius: 8,
+                                      : Colors.grey.withValues(alpha: 0.15),
+                                  blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
                               ],
