@@ -3395,15 +3395,17 @@ class _MainScreenState extends State<MainScreen> {
                                 final paid = (bookingDate['date_paid_amount'] ?? 0.0).toDouble().toStringAsFixed(0);
                                 final balance = (bookingDate['date_balance_amount'] ?? 0.0).toDouble().toStringAsFixed(0);
                                 
-                                final message = "*Booking Confirmed!*\n\n"
-                                    "⚽ *Turf:* $turfName\n"
-                                    "📅 *Date:* $date\n"
-                                    "⏰ *Slots:* $slotsText\n\n"
-                                    "💳 *Payment Details:*\n"
-                                    "• Total Amount: ₹$total\n"
-                                    "• Paid Amount: ₹$paid\n"
-                                    "• Balance Due: ₹$balance\n\n"
-                                    "Thank you for booking with us!";
+                                String message = bookingDate['share_message_template'] ??
+                                    "*Booking Confirmed!*\n\n⚽ *Turf:* {turf_name}\n📅 *Date:* {booking_date}\n⏰ *Slots:* {slots}\n\n💳 *Payment Details:*\n• Total Amount: ₹{total_amount}\n• Paid Amount: ₹{paid_amount}\n• Balance Due: ₹{balance_amount}\n\nThank you for booking with us!";
+                                
+                                message = message
+                                    .replaceAll('{customer_name}', bookingDate['customer_name'] ?? 'N/A')
+                                    .replaceAll('{turf_name}', turfName)
+                                    .replaceAll('{booking_date}', date)
+                                    .replaceAll('{slots}', slotsText)
+                                    .replaceAll('{total_amount}', total)
+                                    .replaceAll('{paid_amount}', paid)
+                                    .replaceAll('{balance_amount}', balance);
                                 
                                 String formattedPhone = phone.trim();
                                 if (formattedPhone.length == 10) {
