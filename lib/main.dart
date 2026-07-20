@@ -6129,8 +6129,13 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
     });
 
     try {
-      final queryParams = dates.map((d) => 'dates[]=$d').join('&');
-      final url = '$_baseUrl/turfs/$turfId/slots?$queryParams';
+      String url;
+      if (_selectedType == BookingType.day) {
+        url = '$_baseUrl/turfs/$turfId/slots?date=${dates[0]}';
+      } else {
+        final queryParams = dates.map((d) => 'dates[]=$d').join('&');
+        url = '$_baseUrl/turfs/$turfId/slots?$queryParams';
+      }
       final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
