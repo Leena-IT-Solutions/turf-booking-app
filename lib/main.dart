@@ -6257,32 +6257,93 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            Card(
-              elevation: 0,
-              color: isDark ? const Color(0xFF1E2022) : Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[300]!, width: 1.2),
+            Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(24),
               ),
-              child: ListTile(
-                leading: Icon(Icons.calendar_today, color: theme.colorScheme.primary),
-                title: Text('${_singleDate.day} ${_getMonthName(_singleDate.month)} ${_singleDate.year}'),
-                subtitle: const Text('Tap to change date'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _singleDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 90)),
-                  );
-                  if (picked != null) {
-                    setState(() {
-                      _singleDate = picked;
-                    });
-                    _fetchSlots();
-                  }
-                },
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.arrow_back_ios_new,
+                      color: _isPrevDateDisabled()
+                          ? Colors.grey.withValues(alpha: 0.4)
+                          : theme.colorScheme.primary,
+                      size: 20,
+                    ),
+                    onPressed: _isPrevDateDisabled()
+                        ? null
+                        : () {
+                            setState(() {
+                              _singleDate = _singleDate.subtract(const Duration(days: 1));
+                            });
+                            _fetchSlots();
+                          },
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _singleDate,
+                          firstDate: DateTime.now().subtract(const Duration(hours: 12)),
+                          lastDate: DateTime.now().add(const Duration(days: 90)),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            _singleDate = picked;
+                          });
+                          _fetchSlots();
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _getDayOfWeekName(_singleDate),
+                              style: TextStyle(
+                                color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${_singleDate.day} ${_getMonthName(_singleDate.month)} ${_singleDate.year}',
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.arrow_forward_ios,
+                      color: _isNextDateDisabled()
+                          ? Colors.grey.withValues(alpha: 0.4)
+                          : theme.colorScheme.primary,
+                      size: 20,
+                    ),
+                    onPressed: _isNextDateDisabled()
+                        ? null
+                        : () {
+                            setState(() {
+                              _singleDate = _singleDate.add(const Duration(days: 1));
+                            });
+                            _fetchSlots();
+                          },
+                  ),
+                ],
               ),
             ),
           ],
@@ -6418,6 +6479,23 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
   String _getMonthName(int month) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return months[month - 1];
+  }
+
+  String _getDayOfWeekName(DateTime date) {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return days[date.weekday - 1];
+  }
+
+  bool _isPrevDateDisabled() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return !_singleDate.isAfter(today);
+  }
+
+  bool _isNextDateDisabled() {
+    final limit = DateTime.now().add(const Duration(days: 90));
+    final nextDay = DateTime(_singleDate.year, _singleDate.month, _singleDate.day).add(const Duration(days: 1));
+    return nextDay.isAfter(limit);
   }
 
   Map<String, List<dynamic>> _getGroupedSlots() {
