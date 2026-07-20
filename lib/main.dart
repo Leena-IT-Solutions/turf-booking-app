@@ -6598,7 +6598,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                 final int id = slot['id'];
                 final String label = slot['time_label'] ?? '';
                 final double price = (slot['price'] as num).toDouble();
-                final bool isBooked = slot['is_booked'] == true;
+                final bool isBooked = _selectedType == BookingType.day && slot['is_booked'] == true;
                 final bool isSelected = _selectedSlotIds.contains(id);
 
                 if (isBooked) {
@@ -6782,7 +6782,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
     if (tappedIndex == -1) return;
 
     final tappedSlot = _slots[tappedIndex];
-    final bool isBooked = tappedSlot['is_booked'] == true;
+    final bool isBooked = _selectedType == BookingType.day && tappedSlot['is_booked'] == true;
     if (isBooked) return;
 
     final bool isSelected = _selectedSlotIds.contains(tappedId);
