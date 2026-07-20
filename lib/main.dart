@@ -894,6 +894,7 @@ class _MainScreenState extends State<MainScreen> {
 
   List<dynamic> _bookings = [];
   bool _bookingsLoading = false;
+  String _bookingsFilter = 'upcoming';
   int _bookingsPage = 1;
   bool _hasMoreBookings = true;
   bool _bookingsLoadingMore = false;
@@ -930,7 +931,7 @@ class _MainScreenState extends State<MainScreen> {
     try {
       final pageToFetch = refresh ? 1 : (loadMore ? _bookingsPage + 1 : 1);
       final response = await http.get(
-        Uri.parse('$_baseUrl/bookings?page=$pageToFetch'),
+        Uri.parse('$_baseUrl/bookings?page=$pageToFetch&filter=$_bookingsFilter'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -2785,188 +2786,301 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildBookingsView() {
     final theme = Theme.of(context);
 
-    if (_bookingsLoading && _bookings.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
+    Widget filterTabs = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: theme.brightness == Brightness.dark
+              ? Colors.grey[900]
+              : Colors.grey[200],
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (_bookingsFilter != 'upcoming') {
+                    setState(() {
+                      _bookingsFilter = 'upcoming';
+                      _bookings = [];
+                      _bookingsPage = 1;
+                      _hasMoreBookings = true;
+                    });
+                    _fetchBookings(refresh: true);
+                  }
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _bookingsFilter == 'upcoming'
+                        ? theme.colorScheme.primary
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Upcoming',
+                    style: TextStyle(
+                      color: _bookingsFilter == 'upcoming'
+                          ? Colors.white
+                          : (theme.brightness == Brightness.dark
+                              ? Colors.grey[400]
+                              : Colors.grey[700]),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (_bookingsFilter != 'past') {
+                    setState(() {
+                      _bookingsFilter = 'past';
+                      _bookings = [];
+                      _bookingsPage = 1;
+                      _hasMoreBookings = true;
+                    });
+                    _fetchBookings(refresh: true);
+                  }
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _bookingsFilter == 'past'
+                        ? theme.colorScheme.primary
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Past',
+                    style: TextStyle(
+                      color: _bookingsFilter == 'past'
+                          ? Colors.white
+                          : (theme.brightness == Brightness.dark
+                              ? Colors.grey[400]
+                              : Colors.grey[700]),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
 
-    if (_bookings.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.calendar_month,
-                size: 64,
-                color: Colors.grey.withValues(alpha: 0.4),
+    Widget body;
+    if (_bookingsLoading && _bookings.isEmpty) {
+      body = const Expanded(
+        child: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    } else if (_bookings.isEmpty) {
+      body = Expanded(
+        child: RefreshIndicator(
+          onRefresh: () => _fetchBookings(refresh: true),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 80.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.calendar_month,
+                    size: 64,
+                    color: Colors.grey.withValues(alpha: 0.4),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _bookingsFilter == 'upcoming' ? 'No Upcoming Bookings' : 'No Past Bookings',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _bookingsFilter == 'upcoming'
+                        ? 'You don\'t have any future turf bookings. Book a slot to get started!'
+                        : 'Your past bookings history is empty.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                'No Bookings Yet',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      );
+    } else {
+      body = Expanded(
+        child: RefreshIndicator(
+          onRefresh: () => _fetchBookings(refresh: true),
+          child: ListView.builder(
+            controller: _bookingsScrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
+            itemCount: _bookings.length + (_hasMoreBookings ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index == _bookings.length) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              final b = _bookings[index];
+              final isConfirmed = b['status'] == 'Confirmed';
+              final isPaid = b['payment_status'] == 'Paid';
+              final bookingType = b['booking_type'] ?? 'day';
+
+              String formattedBookingType = 'Day Session';
+              if (bookingType == 'long') {
+                formattedBookingType = 'Long Session';
+              } else if (bookingType == 'scattered') {
+                formattedBookingType = 'Scattered Slots';
+              }
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                clipBehavior: Clip.antiAlias,
+                elevation: 2,
+                child: InkWell(
+                  onTap: () => _showBookingDetailsBottomSheet(context, b),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                b['turf_name'] ?? 'Unknown Turf',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isConfirmed
+                                    ? Colors.green.withValues(alpha: 0.1)
+                                    : Colors.orange.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                b['status'] ?? 'Pending',
+                                style: TextStyle(
+                                  color: isConfirmed ? Colors.green : Colors.orange,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                formattedBookingType,
+                                style: TextStyle(
+                                  color: theme.colorScheme.primary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isPaid
+                                    ? Colors.blue.withValues(alpha: 0.1)
+                                    : Colors.red.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                b['payment_status'] ?? 'Pending',
+                                style: TextStyle(
+                                  color: isPaid ? Colors.blue : Colors.red,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 24),
+                        Row(
+                          children: [
+                            const Icon(Icons.event, size: 16, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Text(b['booking_date'] ?? '',
+                                style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.schedule, size: 16, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Text(b['summary_text'] ?? '', style: const TextStyle(color: Colors.grey)),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Price Paid',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                            ),
+                            Text(
+                              b['price'] ?? '',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'You haven\'t booked any turfs yet. Your bookings will appear here.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
+              );
+            },
           ),
         ),
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: () => _fetchBookings(refresh: true),
-      child: ListView.builder(
-        controller: _bookingsScrollController,
-        padding: const EdgeInsets.all(20),
-        itemCount: _bookings.length + (_hasMoreBookings ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == _bookings.length) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          final b = _bookings[index];
-          final isConfirmed = b['status'] == 'Confirmed';
-          final isPaid = b['payment_status'] == 'Paid';
-          final bookingType = b['booking_type'] ?? 'day';
-
-          String formattedBookingType = 'Day Session';
-          if (bookingType == 'long') {
-            formattedBookingType = 'Long Session';
-          } else if (bookingType == 'scattered') {
-            formattedBookingType = 'Scattered Slots';
-          }
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            clipBehavior: Clip.antiAlias,
-            elevation: 2,
-            child: InkWell(
-              onTap: () => _showBookingDetailsBottomSheet(context, b),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            b['turf_name'] ?? 'Unknown Turf',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isConfirmed ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            b['status'] ?? 'Pending',
-                            style: TextStyle(
-                              color: isConfirmed ? Colors.green : Colors.orange,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            formattedBookingType,
-                            style: TextStyle(
-                              color: theme.colorScheme.primary,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isPaid ? Colors.blue.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            b['payment_status'] ?? 'Pending',
-                            style: TextStyle(
-                              color: isPaid ? Colors.blue : Colors.red,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 24),
-                    Row(
-                      children: [
-                        const Icon(Icons.event, size: 16, color: Colors.grey),
-                        const SizedBox(width: 8),
-                        Text(b['booking_date'] ?? '', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.schedule, size: 16, color: Colors.grey),
-                        const SizedBox(width: 8),
-                        Text(b['summary_text'] ?? '', style: const TextStyle(color: Colors.grey)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Price Paid',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                        ),
-                        Text(
-                          b['price'] ?? '',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+    return Column(
+      children: [
+        filterTabs,
+        body,
+      ],
     );
   }
 
