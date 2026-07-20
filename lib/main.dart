@@ -5760,7 +5760,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   String _userMobile = '';
 
   // Payment Selection
-  String _paymentMethod = 'offline'; // 'offline' or 'razorpay'
+  String _paymentMethod = 'offline'; // 'offline', 'razorpay_full', or 'razorpay_part'
   bool _submittingBooking = false;
 
   @override
@@ -5777,8 +5777,14 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     // Set default payment method based on turf configuration
     final bool isPayAtLocation = widget.turf['is_pay_at_location_active'] ?? true;
     final bool isOnlinePayment = widget.turf['is_online_payment_active'] ?? false;
-    if (isOnlinePayment && !isPayAtLocation) {
-      _paymentMethod = 'razorpay';
+    final bool isPartPayment = widget.turf['is_part_payment_active'] ?? false;
+
+    if (isOnlinePayment) {
+      _paymentMethod = 'razorpay_full';
+    } else if (isPartPayment) {
+      _paymentMethod = 'razorpay_part';
+    } else if (isPayAtLocation) {
+      _paymentMethod = 'offline';
     } else {
       _paymentMethod = 'offline';
     }
@@ -5852,7 +5858,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   double get _totalToPay => _subtotal - _discount;
 
   double get _payableNowAmount {
-    if (widget.turf['is_part_payment_active'] == true && _paymentMethod == 'razorpay') {
+    if (_paymentMethod == 'razorpay_part') {
       final String partType = widget.turf['part_payment_type'] ?? 'percentage';
       final double partVal = widget.turf['part_payment_value'] != null
           ? double.parse(widget.turf['part_payment_value'].toString())
@@ -5957,7 +5963,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       _submittingBooking = true;
     });
 
-    if (_paymentMethod == 'razorpay') {
+    if (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part') {
       // Launch Razorpay
       final keyToUse = _razorpayKey ?? 'rzp_test_5yX1f8e1F8e1F8'; // fallback
       final options = {
@@ -6007,7 +6013,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
           'booking_dates': widget.dates,
           'booking_type': widget.bookingType.name,
           'coupon_code': _appliedCoupon != null ? _appliedCoupon!['code'] : null,
-          'payment_method': _paymentMethod,
+          'payment_method': (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part') ? 'razorpay' : 'offline',
           'razorpay_payment_id': paymentId,
         }),
       );
@@ -6028,9 +6034,11 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
               ],
             ),
             content: Text(
-              _paymentMethod == 'razorpay'
+              _paymentMethod == 'razorpay_full'
                   ? 'Your payment was successful and booking is confirmed!'
-                  : 'Your booking is confirmed! Please pay at the location.',
+                  : _paymentMethod == 'razorpay_part'
+                      ? 'Your deposit payment was successful and booking is confirmed! Please pay the remaining balance at the venue.'
+                      : 'Your booking is confirmed! Please pay at the location.',
             ),
             actions: [
               ElevatedButton(
@@ -6064,6 +6072,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
 
     final bool isPayAtLocation = widget.turf['is_pay_at_location_active'] ?? true;
     final bool isOnlinePayment = widget.turf['is_online_payment_active'] ?? false;
+    final bool isPartPayment = widget.turf['is_part_payment_active'] ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -6342,7 +6351,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                           if (isPayAtLocation)
                             RadioListTile<String>(
                               title: const Text('Pay at Location'),
-                              subtitle: const Text('Pay cash or UPI directly at the venue'),
+                              subtitle: const Text('Full payment will be paid at location'),
                               value: 'offline',
                               groupValue: _paymentMethod,
                               onChanged: (val) {
@@ -6353,13 +6362,9 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                             ),
                           if (isOnlinePayment)
                             RadioListTile<String>(
-                              title: Text(widget.turf['is_part_payment_active'] == true
-                                  ? 'Pay Deposit Online'
-                                  : 'Pay Online'),
-                              subtitle: Text(widget.turf['is_part_payment_active'] == true
-                                  ? 'Pay only deposit amount upfront online'
-                                  : 'Pay securely via Credit Card, Netbanking, or UPI'),
-                              value: 'razorpay',
+                              title: const Text('Pay Online'),
+                              subtitle: const Text('Pay full amount securely via Credit Card, Netbanking, or UPI'),
+                              value: 'razorpay_full',
                               groupValue: _paymentMethod,
                               onChanged: (val) {
                                 if (val != null) setState(() => _paymentMethod = val);
@@ -6367,10 +6372,22 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                               activeColor: theme.colorScheme.primary,
                               contentPadding: EdgeInsets.zero,
                             ),
-                          if (!isPayAtLocation && !isOnlinePayment)
+                          if (isPartPayment)
+                            RadioListTile<String>(
+                              title: const Text('Part Payment'),
+                              subtitle: const Text('Accepts part payment online, remaining will be taken at the turf'),
+                              value: 'razorpay_part',
+                              groupValue: _paymentMethod,
+                              onChanged: (val) {
+                                if (val != null) setState(() => _paymentMethod = val);
+                              },
+                              activeColor: theme.colorScheme.primary,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          if (!isPayAtLocation && !isOnlinePayment && !isPartPayment)
                             RadioListTile<String>(
                               title: const Text('Pay at Location'),
-                              subtitle: const Text('Pay cash or UPI directly at the venue'),
+                              subtitle: const Text('Full payment will be paid at location'),
                               value: 'offline',
                               groupValue: _paymentMethod,
                               onChanged: (val) {
@@ -6421,7 +6438,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                               ),
                             ],
                           ),
-                          if (widget.turf['is_part_payment_active'] == true || _paymentMethod == 'offline') ...[
+                          if (_paymentMethod == 'razorpay_part' || _paymentMethod == 'offline') ...[
                             const Divider(height: 24),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -6478,7 +6495,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                               child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                             )
                           : Text(
-                              _paymentMethod == 'razorpay' ? 'Pay & Confirm' : 'Confirm Booking',
+                              (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part') ? 'Pay & Confirm' : 'Confirm Booking',
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             ),
                     ),
