@@ -922,6 +922,8 @@ class _MainScreenState extends State<MainScreen> {
   Map<String, dynamic>? _dashboardStats;
   bool _dashboardStatsLoading = false;
   int? _dashboardSelectedTurfId;
+  int? _clientBookingSelectedTurfId;
+  List<dynamic> _manageableTurfs = [];
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1002,8 +1004,9 @@ class _MainScreenState extends State<MainScreen> {
 
     try {
       final dateStr = "${_clientBookingSelectedDate.year}-${_clientBookingSelectedDate.month.toString().padLeft(2, '0')}-${_clientBookingSelectedDate.day.toString().padLeft(2, '0')}";
+      final turfParam = _clientBookingSelectedTurfId != null ? '&turf_id=$_clientBookingSelectedTurfId' : '';
       final response = await http.get(
-        Uri.parse('$_baseUrl/bookings?date=$dateStr'),
+        Uri.parse('$_baseUrl/bookings?date=$dateStr$turfParam'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -1057,6 +1060,7 @@ class _MainScreenState extends State<MainScreen> {
           setState(() {
             _dashboardStats = data;
             _dashboardStatsLoading = false;
+            _manageableTurfs = List<dynamic>.from(data['turfs'] ?? []);
           });
         }
       } else {
@@ -4406,6 +4410,76 @@ class _MainScreenState extends State<MainScreen> {
 
     return Column(
       children: [
+        // Turf selector dropdown
+        if (_manageableTurfs.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 16.0),
+            child: Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  width: 1.5,
+                ),
+              ),
+              color: theme.colorScheme.primary.withValues(alpha: 0.02),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
+                  children: [
+                    Icon(Icons.filter_list, color: theme.colorScheme.primary, size: 20),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Select Turf:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int?>(
+                          value: _clientBookingSelectedTurfId,
+                          isExpanded: true,
+                          hint: const Text('All Turfs'),
+                          icon: Icon(Icons.keyboard_arrow_down, color: theme.colorScheme.primary),
+                          items: [
+                            const DropdownMenuItem<int?>(
+                              value: null,
+                              child: Text(
+                                'All Turfs',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            ..._manageableTurfs.map<DropdownMenuItem<int?>>((t) {
+                              return DropdownMenuItem<int?>(
+                                value: t['id'] as int,
+                                child: Text(
+                                  t['name'] ?? 'Unknown Turf',
+                                  style: const TextStyle(fontSize: 14),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }),
+                          ],
+                          onChanged: (int? newValue) {
+                            setState(() {
+                              _clientBookingSelectedTurfId = newValue;
+                            });
+                            _fetchClientBookings();
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+
         // Date Selector Header Strip
         Padding(
           padding: const EdgeInsets.all(16.0),
