@@ -4727,12 +4727,23 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                             width: 250,
                             margin: const EdgeInsets.only(right: 12),
                             decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.05),
+                              color: isDark 
+                                  ? Colors.green.withValues(alpha: 0.15) 
+                                  : Colors.green.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: Colors.green.withValues(alpha: 0.15),
+                                color: Colors.green.withValues(alpha: 0.35),
                                 width: 1.5,
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: isDark 
+                                      ? Colors.black26 
+                                      : Colors.green.withValues(alpha: 0.06),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
                             padding: const EdgeInsets.all(12),
                             child: Row(
@@ -4740,7 +4751,7 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.withValues(alpha: 0.1),
+                                    color: Colors.green.withValues(alpha: 0.15),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
