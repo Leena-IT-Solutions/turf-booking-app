@@ -5454,85 +5454,97 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                         itemBuilder: (context, idx) {
                           final coupon = _coupons[idx];
                           final code = coupon['code'] ?? '';
-                          final desc = coupon['description'] ?? '';
                           final minSlots = coupon['minimum_slots_to_be_ordered'] ?? 0;
+                          final discountType = coupon['discount_type'] ?? '';
+                          final discountValue = (coupon['discount_value'] is num)
+                              ? coupon['discount_value'].toDouble()
+                              : double.tryParse(coupon['discount_value'].toString()) ?? 0.0;
 
-                          return Container(
-                            width: 250,
+                          String discountStr = '';
+                          if (discountType == 'percentage') {
+                            discountStr = '${discountValue.toStringAsFixed(0)}% Off';
+                          } else {
+                            discountStr = '₹${discountValue.toStringAsFixed(0)} Off';
+                          }
+
+                          return Card(
                             margin: const EdgeInsets.only(right: 12),
-                            decoration: BoxDecoration(
-                              color: isDark 
-                                  ? const Color(0xFF1E2022) 
-                                  : Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Colors.green,
-                                width: 1.5,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: isDark 
-                                      ? Colors.black26 
-                                      : Colors.grey.withValues(alpha: 0.15),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                              side: const BorderSide(color: Colors.green, width: 1.5),
                             ),
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withValues(alpha: 0.15),
-                                    shape: BoxShape.circle,
+                            color: isDark ? const Color(0xFF1E2022) : Colors.white,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () {
+                                Clipboard.setData(ClipboardData(text: code));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Coupon code "$code" copied!'),
+                                    duration: const Duration(seconds: 1),
+                                    behavior: SnackBarBehavior.floating,
+                                    width: 250,
                                   ),
-                                  child: const Icon(
-                                    Icons.confirmation_num_outlined,
-                                    color: Colors.green,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        code,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                          color: Colors.green,
-                                        ),
+                                );
+                              },
+                              child: Container(
+                                width: 220,
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.withValues(alpha: 0.15),
+                                        shape: BoxShape.circle,
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        desc,
-                                        style: TextStyle(
-                                          color: isDark ? Colors.grey[400] : Colors.grey[700],
-                                          fontSize: 11,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
+                                      child: const Icon(
+                                        Icons.confirmation_num_outlined,
+                                        color: Colors.green,
+                                        size: 20,
                                       ),
-                                      if (minSlots > 0) ...[
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'Min slots: $minSlots',
-                                          style: const TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            code,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: Colors.green,
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            discountStr,
+                                            style: TextStyle(
+                                              color: isDark ? Colors.white : Colors.black87,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          if (minSlots > 0) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Min slots: $minSlots',
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           );
                         },
