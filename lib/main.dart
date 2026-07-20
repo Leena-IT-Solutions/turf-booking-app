@@ -3359,12 +3359,68 @@ class _MainScreenState extends State<MainScreen> {
                   const SizedBox(height: 24),
                   const Divider(),
                   const SizedBox(height: 16),
-                  Text(
-                    'Customer Details',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Customer Details',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (bookingDate['customer_mobile'] != null && bookingDate['customer_mobile'] != 'N/A')
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.phone, color: Color(0xFF10B981)),
+                              tooltip: 'Call Client',
+                              onPressed: () async {
+                                final phone = bookingDate['customer_mobile'];
+                                final Uri callUri = Uri(scheme: 'tel', path: phone);
+                                if (await canLaunchUrl(callUri)) {
+                                  await launchUrl(callUri);
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chat, color: Color(0xFF25D366)),
+                              tooltip: 'Share via WhatsApp',
+                              onPressed: () async {
+                                final phone = bookingDate['customer_mobile'];
+                                final turfName = bookingDate['turf_name'] ?? 'Unknown Turf';
+                                final date = bookingDate['booking_date'] ?? '';
+                                final slotsText = slots.map((s) => s['time_range']).join(', ');
+                                final total = (bookingDate['amount'] ?? 0.0).toDouble().toStringAsFixed(0);
+                                final paid = (bookingDate['date_paid_amount'] ?? 0.0).toDouble().toStringAsFixed(0);
+                                final balance = (bookingDate['date_balance_amount'] ?? 0.0).toDouble().toStringAsFixed(0);
+                                
+                                final message = "*Booking Confirmed!*\n\n"
+                                    "⚽ *Turf:* $turfName\n"
+                                    "📅 *Date:* $date\n"
+                                    "⏰ *Slots:* $slotsText\n\n"
+                                    "💳 *Payment Details:*\n"
+                                    "• Total Amount: ₹$total\n"
+                                    "• Paid Amount: ₹$paid\n"
+                                    "• Balance Due: ₹$balance\n\n"
+                                    "Thank you for booking with us!";
+                                
+                                String formattedPhone = phone.trim();
+                                if (formattedPhone.length == 10) {
+                                  formattedPhone = "91$formattedPhone";
+                                } else {
+                                  formattedPhone = formattedPhone.replaceAll(RegExp(r'\D'), '');
+                                }
+
+                                final whatsappUri = Uri.parse("https://wa.me/$formattedPhone?text=${Uri.encodeComponent(message)}");
+                                if (await canLaunchUrl(whatsappUri)) {
+                                  await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   _buildDetailRow(Icons.person_outline, 'Name', bookingDate['customer_name'] ?? 'N/A'),
