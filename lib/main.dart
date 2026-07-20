@@ -5134,19 +5134,24 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
 
   Future<void> _fetchSlots() async {
     final turfId = widget.turf['id'];
-    String? dateStr;
+    final List<String> dates = [];
     
     if (_selectedType == BookingType.day) {
-      dateStr = "${_singleDate.year}-${_singleDate.month.toString().padLeft(2, '0')}-${_singleDate.day.toString().padLeft(2, '0')}";
+      dates.add("${_singleDate.year}-${_singleDate.month.toString().padLeft(2, '0')}-${_singleDate.day.toString().padLeft(2, '0')}");
     } else if (_selectedType == BookingType.long && _dateRange != null) {
-      final start = _dateRange!.start;
-      dateStr = "${start.year}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}";
+      var current = _dateRange!.start;
+      final end = _dateRange!.end;
+      while (!current.isAfter(end)) {
+        dates.add("${current.year}-${current.month.toString().padLeft(2, '0')}-${current.day.toString().padLeft(2, '0')}");
+        current = current.add(const Duration(days: 1));
+      }
     } else if (_selectedType == BookingType.scattered && _scatteredDates.isNotEmpty) {
-      final start = _scatteredDates.first;
-      dateStr = "${start.year}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}";
+      for (final date in _scatteredDates) {
+        dates.add("${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}");
+      }
     }
 
-    if (dateStr == null) {
+    if (dates.isEmpty) {
       setState(() {
         _slots = [];
       });
@@ -5158,9 +5163,18 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
     });
 
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/turfs/$turfId/slots?date=$dateStr'));
+      final queryParams = dates.map((d) => 'dates[]=$d').join('&');
+      final url = '$_baseUrl/turfs/$turfId/slots?$queryParams';
+      final response = await http.get(Uri.parse(url));
+
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+        
+        // Dont show booked slots for long and scattered booking
+        if (_selectedType == BookingType.long || _selectedType == BookingType.scattered) {
+          data.removeWhere((s) => s['is_booked'] == true);
+        }
+
         if (mounted) {
           setState(() {
             _slots = data;
