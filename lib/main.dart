@@ -3066,15 +3066,52 @@ class _MainScreenState extends State<MainScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
+                              'Total Price',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                            ),
+                            Text(
+                              '₹${(b['amount'] ?? 0.0).toDouble().toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
                               'Price Paid',
                               style: TextStyle(color: Colors.grey[600], fontSize: 13),
                             ),
                             Text(
-                              b['price'] ?? '',
+                              '₹${(b['date_paid_amount'] ?? 0.0).toDouble().toStringAsFixed(0)}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                                fontSize: 14,
                                 color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Balance',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                            ),
+                            Text(
+                              '₹${(b['date_balance_amount'] ?? 0.0).toDouble().toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: (b['date_balance_amount'] ?? 0.0) > 0
+                                    ? Colors.orange
+                                    : Colors.grey[600],
                               ),
                             ),
                           ],
@@ -3246,18 +3283,61 @@ class _MainScreenState extends State<MainScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'Total Amount Paid',
+                        'Total Amount',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      Text(
+                        '₹${(bookingDate['amount'] ?? 0.0).toDouble().toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Price Paid',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      Text(
+                        '₹${(bookingDate['date_paid_amount'] ?? 0.0).toDouble().toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Balance',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        bookingDate['price'] ?? '',
+                        '₹${(bookingDate['date_balance_amount'] ?? 0.0).toDouble().toStringAsFixed(0)}',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
+                          color: (bookingDate['date_balance_amount'] ?? 0.0) > 0
+                              ? Colors.orange
+                              : Colors.grey[600],
                         ),
                       ),
                     ],
