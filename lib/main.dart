@@ -6721,6 +6721,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       requestBody['amount_received'] = _amountReceived;
     } else {
       requestBody['payment_method'] = (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part') ? 'App' : 'offline';
+      requestBody['payment_option'] = _paymentMethod == 'razorpay_part' ? 'part' : 'full';
       requestBody['razorpay_payment_id'] = paymentId;
     }
 
