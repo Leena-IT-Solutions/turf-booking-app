@@ -6608,6 +6608,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   List<dynamic> _searchedCustomers = [];
   Map<String, dynamic>? _selectedCustomer;
   double _amountReceived = 0.0;
+  bool _hasSearchedCustomers = false;
 
   @override
   void initState() {
@@ -6801,6 +6802,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     setState(() {
       _searchingCustomers = true;
       _searchedCustomers = [];
+      _hasSearchedCustomers = false;
     });
 
     try {
@@ -6817,18 +6819,161 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
         setState(() {
           _searchedCustomers = data;
           _searchingCustomers = false;
+          _hasSearchedCustomers = true;
         });
       } else {
         setState(() {
           _searchingCustomers = false;
+          _hasSearchedCustomers = true;
         });
       }
     } catch (e) {
       setState(() {
         _searchingCustomers = false;
+        _hasSearchedCustomers = true;
       });
       debugPrint('Error searching customers: $e');
     }
+  }
+
+  Future<void> _quickCreateCustomer(String name, String email, String mobile) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/users/quick-create'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+        body: jsonEncode({
+          'name': name,
+          'email': email.isNotEmpty ? email : null,
+          'mobile': mobile.isNotEmpty ? mobile : null,
+        }),
+      );
+
+      final Map<String, dynamic> data = jsonDecode(response.body);
+
+      if (response.statusCode == 201) {
+        if (mounted) {
+          setState(() {
+            _selectedCustomer = data;
+            _searchController.clear();
+            _searchedCustomers = [];
+            _hasSearchedCustomers = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Customer created and selected successfully.')),
+          );
+        }
+      } else {
+        final msg = data['message'] ?? 'Failed to create customer.';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error creating customer: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('An error occurred while creating customer.'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _showCreateCustomerDialog() {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final mobileCtrl = TextEditingController();
+
+    // Autofill the search input into email or mobile if it looks like one!
+    final searchInput = _searchController.text.trim();
+    if (searchInput.contains('@')) {
+      emailCtrl.text = searchInput;
+    } else if (RegExp(r'^\d+$').hasMatch(searchInput)) {
+      mobileCtrl.text = searchInput;
+    } else {
+      nameCtrl.text = searchInput;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Create New Customer', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Full Name *',
+                    hintText: 'Enter name',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: mobileCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile Number',
+                    hintText: 'Enter mobile number',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Email Address',
+                    hintText: 'Enter email address',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '* Either Mobile or Email is required.',
+                  style: TextStyle(color: Colors.grey, fontSize: 11, fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                final email = emailCtrl.text.trim();
+                final mobile = mobileCtrl.text.trim();
+
+                if (name.isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('Name is required.')),
+                  );
+                  return;
+                }
+                if (email.isEmpty && mobile.isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('Either Mobile or Email is required.')),
+                  );
+                  return;
+                }
+
+                Navigator.pop(ctx);
+                _quickCreateCustomer(name, email, mobile);
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // Pricing calculations
@@ -7216,6 +7361,27 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                           },
                                         );
                                       },
+                                    ),
+                                  ),
+                                if (_searchedCustomers.isEmpty && _hasSearchedCustomers && !_searchingCustomers)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text(
+                                          'No customer found.',
+                                          style: TextStyle(color: Colors.grey, fontSize: 13, fontStyle: FontStyle.italic),
+                                        ),
+                                        TextButton.icon(
+                                          onPressed: _showCreateCustomerDialog,
+                                          icon: const Icon(Icons.person_add, size: 16),
+                                          label: const Text(
+                                            'Create New Customer',
+                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                               ] else ...[
