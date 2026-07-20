@@ -921,6 +921,7 @@ class _MainScreenState extends State<MainScreen> {
   // Dashboard Screen state variables
   Map<String, dynamic>? _dashboardStats;
   bool _dashboardStatsLoading = false;
+  int? _dashboardSelectedTurfId;
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1040,8 +1041,9 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     try {
+      final queryParam = _dashboardSelectedTurfId != null ? '?turf_id=$_dashboardSelectedTurfId' : '';
       final response = await http.get(
-        Uri.parse('$_baseUrl/dashboard/stats'),
+        Uri.parse('$_baseUrl/dashboard/stats$queryParam'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -4649,6 +4651,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildDashboardView() {
+    final theme = Theme.of(context);
     if (_dashboardStatsLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -4672,6 +4675,7 @@ class _MainScreenState extends State<MainScreen> {
     final activeTurfs = _dashboardStats!['active_turfs_count'] ?? 0;
     final activeCoupons = _dashboardStats!['active_coupons_count'] ?? 0;
     final recentBookings = List<dynamic>.from(_dashboardStats!['recent_bookings'] ?? []);
+    final List<dynamic> turfsList = _dashboardStats!['turfs'] ?? [];
 
     return RefreshIndicator(
       onRefresh: _fetchDashboardStats,
@@ -4681,6 +4685,74 @@ class _MainScreenState extends State<MainScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Turf selector dropdown
+            if (turfsList.isNotEmpty) ...[
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                    width: 1.5,
+                  ),
+                ),
+                color: theme.colorScheme.primary.withValues(alpha: 0.02),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.filter_list, color: theme.colorScheme.primary, size: 20),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Select Turf:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int?>(
+                            value: _dashboardSelectedTurfId,
+                            isExpanded: true,
+                            hint: const Text('All Turfs'),
+                            icon: Icon(Icons.keyboard_arrow_down, color: theme.colorScheme.primary),
+                            items: [
+                              const DropdownMenuItem<int?>(
+                                value: null,
+                                child: Text(
+                                  'All Turfs',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              ...turfsList.map<DropdownMenuItem<int?>>((t) {
+                                return DropdownMenuItem<int?>(
+                                  value: t['id'] as int,
+                                  child: Text(
+                                    t['name'] ?? 'Unknown Turf',
+                                    style: const TextStyle(fontSize: 14),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (int? newValue) {
+                              setState(() {
+                                _dashboardSelectedTurfId = newValue;
+                              });
+                              _fetchDashboardStats();
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // Grid of Metrics
             GridView.count(
               crossAxisCount: 2,
