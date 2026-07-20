@@ -6199,7 +6199,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                     style: const TextStyle(fontWeight: FontWeight.w500),
                                   ),
                                   Text(
-                                    '₹${slot['price']}',
+                                    '₹${double.parse(slot['price'].toString()).toStringAsFixed(0)}',
                                     style: const TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                 ],
