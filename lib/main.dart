@@ -3313,6 +3313,53 @@ class _MainScreenState extends State<MainScreen> {
     final bool isManagerOrAdmin = _userRoles.any((r) => ['turf-admin', 'manager'].contains(r)) &&
         _manageableTurfIds.contains(bookingTurfId);
 
+    final bool isCancellationActive = bookingDate['is_cancellation_active'] == true || bookingDate['is_cancellation_active'] == 1;
+    final int cancellationHours = bookingDate['cancellation_hours'] ?? 0;
+    final double cancellationFee = (bookingDate['cancellation_fee'] ?? 0.0).toDouble();
+
+    bool canCancel = true;
+    String? cancellationReason;
+    if (!isManagerOrAdmin) {
+      if (!isCancellationActive) {
+        canCancel = false;
+        cancellationReason = 'Cancellation Disabled';
+      } else {
+        try {
+          final dateRawStr = bookingDate['date_raw'] ?? '';
+          if (dateRawStr.isNotEmpty) {
+            String earliestTimeStr = '00:00';
+            if (slots.isNotEmpty) {
+              final firstSlot = slots.first['time_range'] ?? '';
+              if (firstSlot.contains(' - ')) {
+                final timePart = firstSlot.split(' - ').first;
+                final parts = timePart.split(' ');
+                if (parts.length == 2) {
+                  final timeDigits = parts[0].split(':');
+                  int hour = int.parse(timeDigits[0]);
+                  final min = int.parse(timeDigits[1]);
+                  final amPm = parts[1].toUpperCase();
+                  if (amPm == 'PM' && hour != 12) hour += 12;
+                  if (amPm == 'AM' && hour == 12) hour = 0;
+                  earliestTimeStr = "${hour.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}";
+                }
+              }
+            }
+            final DateTime startDateTime = DateTime.parse("$dateRawStr $earliestTimeStr");
+            final diff = startDateTime.difference(DateTime.now());
+            if (diff.inHours < cancellationHours) {
+              canCancel = false;
+              cancellationReason = 'Too Close to Session';
+            }
+          }
+        } catch (_) {}
+      }
+    } else {
+      if (!isCancellationActive) {
+        canCancel = false;
+        cancellationReason = 'Cancellation Disabled';
+      }
+    }
+
     String formattedBookingType = 'Day Session';
     if (bookingType == 'long') {
       formattedBookingType = 'Long Session';
@@ -3407,6 +3454,15 @@ class _MainScreenState extends State<MainScreen> {
                     'Payment Status',
                     bookingDate['date_payment_status'] ?? 'Pending',
                     valueColor: isPaid ? Colors.blue : Colors.red,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDetailRow(
+                    Icons.cancel_outlined,
+                    'Cancellation Policy',
+                    isCancellationActive
+                        ? 'Cancel up to $cancellationHours hrs prior (Fee: ₹${cancellationFee.toStringAsFixed(0)})'
+                        : 'No cancellation allowed',
+                    valueColor: isCancellationActive ? Colors.green : Colors.red,
                   ),
                   const SizedBox(height: 24),
                   const Divider(),
@@ -3668,7 +3724,7 @@ class _MainScreenState extends State<MainScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {
+                        onPressed: canCancel ? () {
                           showDialog(
                             context: context,
                             builder: (BuildContext dialogContext) {
@@ -3699,25 +3755,33 @@ class _MainScreenState extends State<MainScreen> {
                               );
                             },
                           );
-                        },
+                        } : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade50,
-                          foregroundColor: Colors.red,
+                          backgroundColor: canCancel ? Colors.red.shade50 : Colors.grey.shade100,
+                          foregroundColor: canCancel ? Colors.red : Colors.grey,
+                          disabledBackgroundColor: Colors.grey.shade100,
+                          disabledForegroundColor: Colors.grey,
                           elevation: 0,
-                          side: BorderSide(color: Colors.red.shade200, width: 1.5),
+                          side: BorderSide(
+                            color: canCancel ? Colors.red.shade200 : Colors.grey.shade300,
+                            width: 1.5,
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.cancel_outlined, size: 18),
-                            SizedBox(width: 8),
+                            Icon(
+                              canCancel ? Icons.cancel_outlined : Icons.lock_outline,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
                             Text(
-                              'Cancel Booking',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              canCancel ? 'Cancel Booking' : (cancellationReason ?? 'Cannot Cancel'),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
