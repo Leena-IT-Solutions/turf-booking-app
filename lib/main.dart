@@ -3360,6 +3360,22 @@ class _MainScreenState extends State<MainScreen> {
                   const Divider(),
                   const SizedBox(height: 16),
                   Text(
+                    'Customer Details',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDetailRow(Icons.person_outline, 'Name', bookingDate['customer_name'] ?? 'N/A'),
+                  const SizedBox(height: 12),
+                  _buildDetailRow(Icons.phone_android, 'Mobile', bookingDate['customer_mobile'] ?? 'N/A'),
+                  const SizedBox(height: 12),
+                  _buildDetailRow(Icons.mail_outline, 'Email', bookingDate['customer_email'] ?? 'N/A'),
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  Text(
                     'Booked Slots (${slots.length})',
                     style: const TextStyle(
                       fontSize: 16,
