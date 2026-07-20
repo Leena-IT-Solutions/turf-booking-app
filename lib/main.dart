@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'dart:math' as math;
 void main() {
   runApp(const MyApp());
@@ -5357,80 +5358,21 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
       }
     }
 
-    setState(() {
-      _submittingBooking = true;
-    });
+    final selectedSlotsList = _slots.where((s) => _selectedSlotIds.contains(s['id'])).toList();
 
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-    final turfId = widget.turf['id'];
-
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/turfs/$turfId/bookings'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer ${widget.token}',
-        },
-        body: jsonEncode({
-          'slot_ids': _selectedSlotIds,
-          'booking_dates': dates,
-          'booking_type': _selectedType.name,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        if (mounted) {
-          setState(() {
-            _submittingBooking = false;
-          });
-        }
-        
-        if (!mounted) return;
-        await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.green),
-                SizedBox(width: 8),
-                Text('Booking Success'),
-              ],
-            ),
-            content: const Text('Your booking has been successfully confirmed!'),
-            actions: [
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-        
-        navigator.pop();
-      } else {
-        final errorMsg = jsonDecode(response.body)['message'] ?? 'Booking failed. Please try again.';
-        scaffoldMessenger.showSnackBar(SnackBar(content: Text(errorMsg)));
-        if (mounted) {
-          setState(() {
-            _submittingBooking = false;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Booking error: $e');
-      scaffoldMessenger.showSnackBar(
-        const SnackBar(content: Text('Failed to complete booking. Please try again.')),
-      );
-      if (mounted) {
-        setState(() {
-          _submittingBooking = false;
-        });
-      }
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OrderPreviewScreen(
+          turf: widget.turf,
+          token: widget.token!,
+          selectedSlotIds: _selectedSlotIds,
+          selectedSlots: selectedSlotsList,
+          bookingType: _selectedType,
+          dates: dates,
+        ),
+      ),
+    );
   }
 
   @override
@@ -5772,6 +5714,720 @@ class _MultiDatePickerDialogState extends State<MultiDatePickerDialog> {
           child: const Text('OK'),
         ),
       ],
+    );
+  }
+}
+
+class OrderPreviewScreen extends StatefulWidget {
+  final Map<String, dynamic> turf;
+  final String token;
+  final List<int> selectedSlotIds;
+  final List<dynamic> selectedSlots;
+  final BookingType bookingType;
+  final List<String> dates;
+
+  const OrderPreviewScreen({
+    super.key,
+    required this.turf,
+    required this.token,
+    required this.selectedSlotIds,
+    required this.selectedSlots,
+    required this.bookingType,
+    required this.dates,
+  });
+
+  @override
+  State<OrderPreviewScreen> createState() => _OrderPreviewScreenState();
+}
+
+class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
+  final String _baseUrl = 'https://turf.infoleena.com/api';
+  late Razorpay _razorpay;
+
+  // Configuration
+  String? _razorpayKey;
+  bool _configLoading = true;
+
+  // Coupon state
+  final TextEditingController _couponController = TextEditingController();
+  bool _verifyingCoupon = false;
+  Map<String, dynamic>? _appliedCoupon;
+  String? _couponError;
+
+  // User Profile
+  String _userName = '';
+  String _userEmail = '';
+  String _userMobile = '';
+
+  // Payment Selection
+  String _paymentMethod = 'offline'; // 'offline' or 'razorpay'
+  bool _submittingBooking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    
+    _fetchConfig();
+    _loadUserProfile();
+    
+    // Set default payment method based on turf configuration
+    final bool isPayAtLocation = widget.turf['is_pay_at_location_active'] ?? true;
+    final bool isOnlinePayment = widget.turf['is_online_payment_active'] ?? false;
+    if (isOnlinePayment && !isPayAtLocation) {
+      _paymentMethod = 'razorpay';
+    } else {
+      _paymentMethod = 'offline';
+    }
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    _couponController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchConfig() async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/config'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _razorpayKey = data['razorpay_key'];
+          _configLoading = false;
+        });
+      } else {
+        setState(() => _configLoading = false);
+      }
+    } catch (e) {
+      setState(() => _configLoading = false);
+    }
+  }
+
+  Future<void> _loadUserProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userName = prefs.getString('user_name') ?? '';
+      _userEmail = prefs.getString('user_email') ?? '';
+      _userMobile = prefs.getString('user_mobile') ?? '';
+    });
+  }
+
+  // Pricing calculations
+  double get _subtotal {
+    double totalSlotsPrice = 0.0;
+    for (var slot in widget.selectedSlots) {
+      final priceVal = slot['price'];
+      if (priceVal != null) {
+        totalSlotsPrice += priceVal is double ? priceVal : double.parse(priceVal.toString());
+      }
+    }
+    return totalSlotsPrice * widget.dates.length;
+  }
+
+  double get _discount {
+    if (_appliedCoupon == null) return 0.0;
+    final type = _appliedCoupon!['discount_type'];
+    final value = _appliedCoupon!['discount_value'] as double;
+    final maxDiscount = _appliedCoupon!['max_discount_amount'] as double?;
+
+    double calculated = 0.0;
+    if (type == 'fixed') {
+      calculated = value;
+    } else {
+      calculated = _subtotal * (value / 100);
+    }
+
+    if (maxDiscount != null && calculated > maxDiscount) {
+      calculated = maxDiscount;
+    }
+
+    return calculated > _subtotal ? _subtotal : calculated;
+  }
+
+  double get _totalToPay => _subtotal - _discount;
+
+  Future<void> _verifyCoupon() async {
+    final code = _couponController.text.trim();
+    if (code.isEmpty) return;
+
+    setState(() {
+      _verifyingCoupon = true;
+      _couponError = null;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/coupons/verify'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+        body: jsonEncode({
+          'code': code,
+          'turf_id': widget.turf['id'],
+          'slot_count': widget.selectedSlotIds.length,
+          'booking_dates': widget.dates,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _appliedCoupon = data['coupon'];
+          _verifyingCoupon = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Coupon applied successfully!')),
+          );
+        }
+      } else {
+        final errorMsg = jsonDecode(response.body)['message'] ?? 'Invalid coupon code.';
+        setState(() {
+          _couponError = errorMsg;
+          _verifyingCoupon = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _couponError = 'Failed to verify coupon. Please try again.';
+        _verifyingCoupon = false;
+      });
+    }
+  }
+
+  void _removeCoupon() {
+    setState(() {
+      _appliedCoupon = null;
+      _couponController.clear();
+      _couponError = null;
+    });
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) {
+    _completeBooking(response.paymentId);
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    setState(() => _submittingBooking = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Payment failed: ${response.message ?? "Unknown Error"}'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    // Optional implementation
+  }
+
+  Future<void> _processBookingFlow() async {
+    if (_submittingBooking) return;
+
+    setState(() {
+      _submittingBooking = true;
+    });
+
+    if (_paymentMethod == 'razorpay') {
+      // Launch Razorpay
+      final keyToUse = _razorpayKey ?? 'rzp_test_5yX1f8e1F8e1F8'; // fallback
+      final options = {
+        'key': keyToUse,
+        'amount': (_totalToPay * 100).toInt(), // amount in paise
+        'name': widget.turf['name'] ?? 'Turf Booking',
+        'description': 'Booking for ${widget.turf['name']}',
+        'prefill': {
+          'contact': _userMobile.isNotEmpty ? _userMobile : '9999999999',
+          'email': _userEmail.isNotEmpty ? _userEmail : 'user@example.com',
+          'name': _userName.isNotEmpty ? _userName : 'User Name',
+        },
+        'external': {
+          'wallets': ['paytm']
+        }
+      };
+
+      try {
+        _razorpay.open(options);
+      } catch (e) {
+        setState(() => _submittingBooking = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open payment gateway: $e')),
+        );
+      }
+    } else {
+      // Pay at location (offline)
+      _completeBooking(null);
+    }
+  }
+
+  Future<void> _completeBooking(String? paymentId) async {
+    final turfId = widget.turf['id'];
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/turfs/$turfId/bookings'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+        body: jsonEncode({
+          'slot_ids': widget.selectedSlotIds,
+          'booking_dates': widget.dates,
+          'booking_type': widget.bookingType.name,
+          'coupon_code': _appliedCoupon != null ? _appliedCoupon!['code'] : null,
+          'payment_method': _paymentMethod,
+          'razorpay_payment_id': paymentId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() => _submittingBooking = false);
+        if (!mounted) return;
+        
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 28),
+                SizedBox(width: 8),
+                Text('Booking Confirmed'),
+              ],
+            ),
+            content: Text(
+              _paymentMethod == 'razorpay'
+                  ? 'Your payment was successful and booking is confirmed!'
+                  : 'Your booking is confirmed! Please pay at the location.',
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        
+        // Pop back to the Turf Detail or Home screen
+        navigator.pop(); // Pop OrderPreviewScreen
+        navigator.pop(); // Pop TurfBookingScreen
+      } else {
+        final errorMsg = jsonDecode(response.body)['message'] ?? 'Booking failed. Please try again.';
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text(errorMsg), backgroundColor: Colors.red));
+        setState(() => _submittingBooking = false);
+      }
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red));
+      setState(() => _submittingBooking = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final bool isPayAtLocation = widget.turf['is_pay_at_location_active'] ?? true;
+    final bool isOnlinePayment = widget.turf['is_online_payment_active'] ?? false;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Order Preview'),
+        elevation: 0,
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: Colors.white,
+      ),
+      body: _configLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Turf summary card
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          if (widget.turf['image_url'] != null)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                widget.turf['image_url'],
+                                width: 70,
+                                height: 70,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.turf['name'] ?? 'Turf',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.location_on, size: 14, color: Colors.grey),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        widget.turf['location_address'] ?? '',
+                                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '${widget.bookingType.name.toUpperCase()} BOOKING',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.primary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Dates Card
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+                              SizedBox(width: 8),
+                              Text(
+                                'Booking Dates',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 24),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: widget.dates.map((d) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.grey[800] : Colors.grey[200],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  d,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Slots Card
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.access_time, size: 18, color: Colors.grey),
+                              SizedBox(width: 8),
+                              Text(
+                                'Selected Slots',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 24),
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: widget.selectedSlots.length,
+                            separatorBuilder: (context, index) => const Divider(height: 16),
+                            itemBuilder: (context, index) {
+                              final slot = widget.selectedSlots[index];
+                              return Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    slot['time_label'] ?? '',
+                                    style: const TextStyle(fontWeight: FontWeight.w500),
+                                  ),
+                                  Text(
+                                    '₹${slot['price']}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Coupon Card
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.local_offer, size: 18, color: Colors.grey),
+                              SizedBox(width: 8),
+                              Text(
+                                'Apply Coupon',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 24),
+                          if (_appliedCoupon == null) ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _couponController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Enter coupon code',
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                      errorText: _couponError,
+                                    ),
+                                    style: const TextStyle(fontSize: 14),
+                                    textCapitalization: TextCapitalization.characters,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                ElevatedButton(
+                                  onPressed: _verifyingCoupon ? null : _verifyCoupon,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.colorScheme.primary,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  child: _verifyingCoupon
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                        )
+                                      : const Text('Apply'),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Code: ${_appliedCoupon!['code']}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _appliedCoupon!['discount_type'] == 'fixed'
+                                          ? 'Flat ₹${_appliedCoupon!['discount_value']} discount applied'
+                                          : '${_appliedCoupon!['discount_value']}% discount applied',
+                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                                TextButton(
+                                  onPressed: _removeCoupon,
+                                  child: const Text('Remove', style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Payment Options Card
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.payment, size: 18, color: Colors.grey),
+                              SizedBox(width: 8),
+                              Text(
+                                'Payment Method',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 24),
+                          if (isPayAtLocation)
+                            RadioListTile<String>(
+                              title: const Text('Pay at Location'),
+                              subtitle: const Text('Pay cash or UPI directly at the venue'),
+                              value: 'offline',
+                              groupValue: _paymentMethod,
+                              onChanged: (val) {
+                                if (val != null) setState(() => _paymentMethod = val);
+                              },
+                              activeColor: theme.colorScheme.primary,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          if (isOnlinePayment)
+                            RadioListTile<String>(
+                              title: const Text('Pay Online'),
+                              subtitle: const Text('Pay securely via Credit Card, Netbanking, or UPI'),
+                              value: 'razorpay',
+                              groupValue: _paymentMethod,
+                              onChanged: (val) {
+                                if (val != null) setState(() => _paymentMethod = val);
+                              },
+                              activeColor: theme.colorScheme.primary,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          if (!isPayAtLocation && !isOnlinePayment)
+                            RadioListTile<String>(
+                              title: const Text('Pay at Location'),
+                              subtitle: const Text('Pay cash or UPI directly at the venue'),
+                              value: 'offline',
+                              groupValue: _paymentMethod,
+                              onChanged: (val) {
+                                if (val != null) setState(() => _paymentMethod = val);
+                              },
+                              activeColor: theme.colorScheme.primary,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Pricing details card
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Subtotal', style: TextStyle(color: Colors.grey)),
+                              Text('₹${_subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                          if (_discount > 0) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Coupon Discount', style: TextStyle(color: Colors.green)),
+                                Text('-₹${_discount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ],
+                          const Divider(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              Text(
+                                '₹${_totalToPay.toStringAsFixed(2)}',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: theme.colorScheme.primary),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Confirm button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _submittingBooking ? null : _processBookingFlow,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      child: _submittingBooking
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : Text(
+                              _paymentMethod == 'razorpay' ? 'Pay & Confirm' : 'Confirm Booking',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }
