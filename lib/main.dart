@@ -5172,7 +5172,9 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
         
         // Dont show booked slots for long and scattered booking
         if (_selectedType == BookingType.long || _selectedType == BookingType.scattered) {
-          data.removeWhere((s) => s['is_booked'] == true);
+          for (var s in data) {
+            s['is_booked'] = false;
+          }
         }
 
         if (mounted) {
