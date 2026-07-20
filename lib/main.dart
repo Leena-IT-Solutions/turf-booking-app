@@ -4610,8 +4610,11 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                   // Location Card
                   Card(
                     elevation: 0,
-                    color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    color: isDark ? const Color(0xFF1E2022) : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[300]!, width: 1.2),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Row(
@@ -4815,8 +4818,11 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                   const SizedBox(height: 10),
                   Card(
                     elevation: 0,
-                    color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    color: isDark ? const Color(0xFF1E2022) : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[300]!, width: 1.2),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -4897,8 +4903,11 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                   else if (_reviews.isEmpty)
                     Card(
                       elevation: 0,
-                      color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      color: isDark ? const Color(0xFF1E2022) : Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[300]!, width: 1.2),
+                      ),
                       child: const Padding(
                         padding: EdgeInsets.symmetric(vertical: 24, horizontal: 16),
                         child: Center(
@@ -4931,8 +4940,11 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           elevation: 0,
-                          color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          color: isDark ? const Color(0xFF1E2022) : Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[300]!, width: 1.2),
+                          ),
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Column(
@@ -5498,8 +5510,11 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
             const SizedBox(height: 12),
             Card(
               elevation: 0,
-              color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              color: isDark ? const Color(0xFF1E2022) : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[300]!, width: 1.2),
+              ),
               child: ListTile(
                 leading: Icon(Icons.calendar_today, color: theme.colorScheme.primary),
                 title: Text('${_singleDate.day} ${_getMonthName(_singleDate.month)} ${_singleDate.year}'),
@@ -5538,8 +5553,11 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
             const SizedBox(height: 12),
             Card(
               elevation: 0,
-              color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              color: isDark ? const Color(0xFF1E2022) : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[300]!, width: 1.2),
+              ),
               child: ListTile(
                 leading: Icon(Icons.date_range, color: theme.colorScheme.primary),
                 title: Text(rangeText),
@@ -5599,8 +5617,11 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
             if (_scatteredDates.isEmpty)
               Card(
                 elevation: 0,
-                color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                color: isDark ? const Color(0xFF1E2022) : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[300]!, width: 1.2),
+                ),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24, horizontal: 16),
                   child: Center(
@@ -6208,8 +6229,11 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
               // Summary card
               Card(
                 elevation: 0,
-                color: isDark ? const Color(0xFF1E2022) : Colors.grey[100],
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                color: isDark ? const Color(0xFF1E2022) : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[300]!, width: 1.2),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
