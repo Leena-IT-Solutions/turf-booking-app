@@ -2626,13 +2626,19 @@ class _MainScreenState extends State<MainScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
+        onTap: () async {
+          final navigator = Navigator.of(context);
+          final result = await navigator.push(
             MaterialPageRoute(
               builder: (context) => TurfDetailScreen(turf: turf, token: widget.token),
             ),
           );
+          if (result == 'show_bookings' && mounted) {
+            setState(() {
+              _currentIndex = 1;
+            });
+            _fetchBookings();
+          }
         },
         child: SizedBox(
           height: 104,
@@ -4227,9 +4233,9 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                 ],
               ),
               ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
+                onPressed: () async {
+                  final navigator = Navigator.of(context);
+                  final result = await navigator.push(
                     MaterialPageRoute(
                       builder: (context) => TurfBookingScreen(
                         turf: widget.turf,
@@ -4237,6 +4243,9 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                       ),
                     ),
                   );
+                  if (result == 'show_bookings' && mounted) {
+                    navigator.pop('show_bookings');
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.colorScheme.primary,
@@ -5360,8 +5369,8 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
 
     final selectedSlotsList = _slots.where((s) => _selectedSlotIds.contains(s['id'])).toList();
 
-    Navigator.push(
-      context,
+    final navigator = Navigator.of(context);
+    final result = await navigator.push(
       MaterialPageRoute(
         builder: (context) => OrderPreviewScreen(
           turf: widget.turf,
@@ -5373,6 +5382,9 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
         ),
       ),
     );
+    if (result == 'show_bookings' && mounted) {
+      navigator.pop('show_bookings');
+    }
   }
 
   @override
@@ -6051,9 +6063,8 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
           ),
         );
         
-        // Pop back to the Turf Detail or Home screen
-        navigator.pop(); // Pop OrderPreviewScreen
-        navigator.pop(); // Pop TurfBookingScreen
+        // Pop back to MainScreen and show the Bookings tab
+        navigator.pop('show_bookings');
       } else {
         final errorMsg = jsonDecode(response.body)['message'] ?? 'Booking failed. Please try again.';
         scaffoldMessenger.showSnackBar(SnackBar(content: Text(errorMsg), backgroundColor: Colors.red));
