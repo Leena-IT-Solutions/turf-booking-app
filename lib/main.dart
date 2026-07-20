@@ -65,11 +65,7 @@ class _MyAppState extends State<MyApp> {
 
   void _onLogout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('access_token');
-    await prefs.remove('user_name');
-    await prefs.remove('user_email');
-    await prefs.remove('user_mobile');
-    await prefs.remove('user_roles');
+    await prefs.clear();
 
     setState(() {
       _token = null;
@@ -2395,9 +2391,9 @@ class _MainScreenState extends State<MainScreen> {
                       setState(() => _currentIndex = 3);
                     },
                   ),
-                  if (_userRoles.any((r) => r == 'turf-admin' || r == 'saas-admin' || r == 'manager')) ...[
+                  if (_userRoles.any((r) => r == 'turf-admin' || r == 'manager')) ...[
                     const Divider(height: 1),
-                    if (_userRoles.any((r) => r == 'turf-admin' || r == 'saas-admin'))
+                    if (_userRoles.any((r) => r == 'turf-admin'))
                       ListTile(
                         leading: const Icon(Icons.dashboard_outlined),
                         title: const Text('Dashboard'),
@@ -2407,7 +2403,7 @@ class _MainScreenState extends State<MainScreen> {
                           setState(() => _currentIndex = 5);
                         },
                       ),
-                    if (_userRoles.any((r) => r == 'turf-admin' || r == 'saas-admin' || r == 'manager'))
+                    if (_userRoles.any((r) => r == 'turf-admin' || r == 'manager'))
                       ListTile(
                         leading: const Icon(Icons.calendar_today_outlined),
                         title: const Text('Client Booking'),
@@ -3263,7 +3259,7 @@ class _MainScreenState extends State<MainScreen> {
     final isConfirmed = bookingDate['status'] == 'Confirmed';
     final isPaid = bookingDate['date_payment_status'] == 'Paid';
     final bookingType = bookingDate['booking_type'] ?? 'day';
-    final bool isManagerOrAdmin = _userRoles.any((r) => ['saas-admin', 'turf-admin', 'manager'].contains(r));
+    final bool isManagerOrAdmin = _userRoles.any((r) => ['turf-admin', 'manager'].contains(r));
 
     String formattedBookingType = 'Day Session';
     if (bookingType == 'long') {
@@ -7915,7 +7911,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     final bool isOnlinePayment = widget.turf['is_online_payment_active'] ?? false;
     final bool isPartPayment = widget.turf['is_part_payment_active'] ?? false;
 
-    final bool isManagerOrAdmin = _userRoles.any((r) => ['saas-admin', 'turf-admin', 'manager'].contains(r));
+    final bool isManagerOrAdmin = _userRoles.any((r) => ['turf-admin', 'manager'].contains(r));
 
     return Scaffold(
       appBar: AppBar(
