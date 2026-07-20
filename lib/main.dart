@@ -6359,6 +6359,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   final Map<String, String> _dateCoupons = {};
   final Map<String, TextEditingController> _couponControllers = {};
   final Map<String, String?> _couponErrors = {};
+  final TextEditingController _topCouponController = TextEditingController();
 
   // User Profile
   String _userName = '';
@@ -6420,6 +6421,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     _razorpay.clear();
     _searchController.dispose();
     _amountReceivedController.dispose();
+    _topCouponController.dispose();
     for (final controller in _couponControllers.values) {
       controller.dispose();
     }
@@ -6494,33 +6496,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     }
   }
 
-  Future<void> _applyCouponForDate(String date, String code) async {
-    if (code.isEmpty) return;
-    setState(() {
-      _couponErrors[date] = null;
-    });
-    _dateCoupons[date] = code;
-    await _fetchPreview();
-    
-    if (_previewData != null) {
-      final List datesList = _previewData!['dates'] ?? [];
-      final dateObj = datesList.firstWhere((d) => d['date'] == date, orElse: () => null);
-      if (dateObj != null && dateObj['coupon'] != null) {
-        final error = dateObj['coupon']['error'];
-        if (error != null) {
-          setState(() {
-            _couponErrors[date] = error;
-            _dateCoupons.remove(date);
-          });
-          await _fetchPreview();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Coupon applied to $date successfully!')),
-          );
-        }
-      }
-    }
-  }
+
 
   void _removeCouponForDate(String date) async {
     setState(() {
@@ -6531,6 +6507,64 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       _couponErrors[date] = null;
     });
     await _fetchPreview();
+  }
+
+  Future<void> _applyTopCoupon(String code) async {
+    if (code.isEmpty) return;
+
+    setState(() {
+      for (final date in widget.dates) {
+        if (!_dateCoupons.containsKey(date) || _dateCoupons[date] == null || _dateCoupons[date]!.isEmpty) {
+          _dateCoupons[date] = code;
+        }
+      }
+    });
+
+    await _fetchPreview();
+
+    if (_previewData != null) {
+      final List datesList = _previewData!['dates'] ?? [];
+      int successCount = 0;
+      int failCount = 0;
+
+      setState(() {
+        for (final dateData in datesList) {
+          final String dateStr = dateData['date'] ?? '';
+          final coupon = dateData['coupon'];
+          if (coupon != null) {
+            if (coupon['applied'] == true) {
+              _dateCoupons[dateStr] = coupon['code'];
+              successCount++;
+            } else {
+              if (_dateCoupons[dateStr] == code) {
+                _dateCoupons.remove(dateStr);
+                _couponErrors[dateStr] = coupon['error'];
+                failCount++;
+              }
+            }
+          }
+        }
+      });
+
+      if (!mounted) return;
+      _topCouponController.clear();
+
+      if (successCount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Coupon applied successfully to $successCount date(s)!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else if (failCount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to apply coupon to selected date(s).'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _searchCustomers(String query) async {
@@ -7031,6 +7065,61 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                     const SizedBox(height: 16),
                   ],
 
+                  // Top Coupon Code Input Card
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.local_offer, color: theme.colorScheme.primary, size: 20),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Apply Coupon Code',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 24),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _topCouponController,
+                                  decoration: InputDecoration(
+                                    hintText: 'Enter coupon code',
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  style: const TextStyle(fontSize: 14),
+                                  textCapitalization: TextCapitalization.characters,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              ElevatedButton(
+                                onPressed: () {
+                                  final code = _topCouponController.text.trim().toUpperCase();
+                                  _applyTopCoupon(code);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: theme.colorScheme.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                child: const Text('Apply'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // Session detail list with date-wise coupons
                   Text(
                     'Booking Dates & Slots',
@@ -7129,40 +7218,8 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                             ),
                             const Divider(height: 24),
 
-                            // Date-wise Coupon application
-                            if (!couponApplied) ...[
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _couponControllers[dateStr],
-                                      decoration: InputDecoration(
-                                        hintText: 'Enter coupon for this date',
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                        errorText: couponError ?? _couponErrors[dateStr],
-                                      ),
-                                      style: const TextStyle(fontSize: 13),
-                                      textCapitalization: TextCapitalization.characters,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      final code = _couponControllers[dateStr]?.text.trim().toUpperCase() ?? '';
-                                      _applyCouponForDate(dateStr, code);
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: theme.colorScheme.primary,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    ),
-                                    child: const Text('Apply'),
-                                  ),
-                                ],
-                              ),
-                            ] else ...[
+                            // Date-wise Coupon status/display
+                            if (couponApplied) ...[
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -7188,6 +7245,36 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                         child: const Text('Remove', style: TextStyle(color: Colors.red, fontSize: 12)),
                                       ),
                                     ],
+                                  ),
+                                ],
+                              ),
+                            ] else if ((couponError ?? _couponErrors[dateStr]) != null) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            couponError ?? _couponErrors[dateStr]!,
+                                            style: const TextStyle(color: Colors.red, fontSize: 12),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _couponErrors[dateStr] = null;
+                                      });
+                                    },
+                                    child: const Text('Clear', style: TextStyle(color: Colors.grey, fontSize: 12)),
                                   ),
                                 ],
                               ),
