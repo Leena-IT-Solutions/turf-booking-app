@@ -1036,6 +1036,40 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  Future<void> _cancelBooking(int bookingId) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/bookings/$bookingId/cancel'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+      );
+
+      if (mounted) Navigator.pop(context);
+
+      if (response.statusCode == 200) {
+        _showSuccess('Booking cancelled successfully.');
+        _fetchBookings(refresh: true);
+        _fetchClientBookings();
+        _fetchDashboardStats();
+      } else {
+        final data = jsonDecode(response.body);
+        _showError(data['message'] ?? 'Failed to cancel booking.');
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      _showError('Network error. Failed to cancel booking.');
+    }
+  }
+
   Future<void> _fetchDashboardStats() async {
     if (mounted) {
       setState(() {
@@ -3082,6 +3116,7 @@ class _MainScreenState extends State<MainScreen> {
 
               final b = _bookings[index];
               final isConfirmed = b['status'] == 'Confirmed';
+              final isCancelled = b['status'] == 'Cancelled';
               final isPaid = b['date_payment_status'] == 'Paid';
               final bookingType = b['booking_type'] ?? 'day';
 
@@ -3120,13 +3155,17 @@ class _MainScreenState extends State<MainScreen> {
                               decoration: BoxDecoration(
                                 color: isConfirmed
                                     ? Colors.green.withValues(alpha: 0.1)
-                                    : Colors.orange.withValues(alpha: 0.1),
+                                    : (isCancelled
+                                        ? Colors.red.withValues(alpha: 0.1)
+                                        : Colors.orange.withValues(alpha: 0.1)),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
                                 b['status'] ?? 'Pending',
                                 style: TextStyle(
-                                  color: isConfirmed ? Colors.green : Colors.orange,
+                                  color: isConfirmed
+                                      ? Colors.green
+                                      : (isCancelled ? Colors.red : Colors.orange),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 ),
@@ -3267,6 +3306,7 @@ class _MainScreenState extends State<MainScreen> {
     final theme = Theme.of(context);
     final slots = List<dynamic>.from(bookingDate['slots'] ?? []);
     final isConfirmed = bookingDate['status'] == 'Confirmed';
+    final isCancelled = bookingDate['status'] == 'Cancelled';
     final isPaid = bookingDate['date_payment_status'] == 'Paid';
     final bookingType = bookingDate['booking_type'] ?? 'day';
     final String bookingTurfId = bookingDate['turf_id']?.toString() ?? '';
@@ -3319,13 +3359,17 @@ class _MainScreenState extends State<MainScreen> {
                         decoration: BoxDecoration(
                           color: isConfirmed
                               ? Colors.green.withValues(alpha: 0.1)
-                              : Colors.orange.withValues(alpha: 0.1),
+                              : (isCancelled
+                                  ? Colors.red.withValues(alpha: 0.1)
+                                  : Colors.orange.withValues(alpha: 0.1)),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           bookingDate['status'] ?? 'Pending',
                           style: TextStyle(
-                            color: isConfirmed ? Colors.green : Colors.orange,
+                            color: isConfirmed
+                                ? Colors.green
+                                : (isCancelled ? Colors.red : Colors.orange),
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
@@ -3616,6 +3660,67 @@ class _MainScreenState extends State<MainScreen> {
                           ),
                         ),
                         child: const Text('Record Payment'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (bookingDate['status'] != 'Cancelled') ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext dialogContext) {
+                              return AlertDialog(
+                                title: const Text('Cancel Booking'),
+                                content: const Text('Are you sure you want to cancel this booking? This action will free up the selected slots.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(dialogContext),
+                                    child: const Text('No'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.pop(dialogContext);
+                                      Navigator.pop(context);
+                                      final bookingId = bookingDate['booking_id'];
+                                      if (bookingId != null) {
+                                        _cancelBooking(bookingId);
+                                      }
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: const Text('Yes, Cancel'),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade50,
+                          foregroundColor: Colors.red,
+                          elevation: 0,
+                          side: BorderSide(color: Colors.red.shade200, width: 1.5),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.cancel_outlined, size: 18),
+                            SizedBox(width: 8),
+                            Text(
+                              'Cancel Booking',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -4595,10 +4700,13 @@ class _MainScreenState extends State<MainScreen> {
                         itemCount: _clientBookings.length,
                         itemBuilder: (ctx, idx) {
                           final bDate = _clientBookings[idx];
-                          final status = bDate['date_payment_status'] ?? 'Unpaid';
+                          final isCancelled = bDate['status'] == 'Cancelled';
+                          final status = isCancelled ? 'Cancelled' : (bDate['date_payment_status'] ?? 'Unpaid');
                           
                           Color badgeColor = Colors.red;
-                          if (status == 'Paid') {
+                          if (isCancelled) {
+                            badgeColor = Colors.red;
+                          } else if (status == 'Paid') {
                             badgeColor = const Color(0xFF10B981);
                           } else if (status == 'Partially Paid') {
                             badgeColor = Colors.orange;
