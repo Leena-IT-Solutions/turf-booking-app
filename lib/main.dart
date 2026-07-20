@@ -4349,6 +4349,8 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
   bool _reviewsLoading = true;
   String _avgRating = '0.0';
   int _reviewsCount = 0;
+  List<dynamic> _coupons = [];
+  bool _couponsLoading = true;
 
   @override
   void initState() {
@@ -4356,6 +4358,36 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
     _avgRating = widget.turf['rating']?.toString() ?? '0.0';
     _reviewsCount = widget.turf['reviews_count'] ?? 0;
     _fetchReviews();
+    _fetchCoupons();
+  }
+
+  Future<void> _fetchCoupons() async {
+    final turfId = widget.turf['id'];
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/turfs/$turfId/coupons'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            _coupons = data;
+            _couponsLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _couponsLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching coupons: $e');
+      if (mounted) {
+        setState(() {
+          _couponsLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _fetchReviews() async {
@@ -4664,6 +4696,103 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                     ),
                     const SizedBox(height: 12),
                     _buildVerticalList(equipments, _getEquipmentIcon, Colors.orange, theme),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Discount & Coupon Section
+                  if (!_couponsLoading && _coupons.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        const Icon(Icons.local_offer_outlined, color: Colors.green, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Discounts & Coupons',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 90,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _coupons.length,
+                        itemBuilder: (context, idx) {
+                          final coupon = _coupons[idx];
+                          final code = coupon['code'] ?? '';
+                          final desc = coupon['description'] ?? '';
+                          final minSlots = coupon['minimum_slots_to_be_ordered'] ?? 0;
+
+                          return Container(
+                            width: 250,
+                            margin: const EdgeInsets.only(right: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Colors.green.withValues(alpha: 0.15),
+                                width: 1.5,
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.confirmation_num_outlined,
+                                    color: Colors.green,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        code,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        desc,
+                                        style: TextStyle(
+                                          color: isDark ? Colors.grey[400] : Colors.grey[700],
+                                          fontSize: 11,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (minSlots > 0) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Min slots: $minSlots',
+                                          style: const TextStyle(
+                                            color: Colors.grey,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                     const SizedBox(height: 24),
                   ],
 
