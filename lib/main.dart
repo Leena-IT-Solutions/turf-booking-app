@@ -958,7 +958,7 @@ class _MainScreenState extends State<MainScreen> {
     try {
       final pageToFetch = refresh ? 1 : (loadMore ? _bookingsPage + 1 : 1);
       final response = await http.get(
-        Uri.parse('$_baseUrl/bookings?page=$pageToFetch&filter=$_bookingsFilter'),
+        Uri.parse('$_baseUrl/bookings?page=$pageToFetch&filter=$_bookingsFilter&personal=1'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
