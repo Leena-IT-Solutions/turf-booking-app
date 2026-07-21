@@ -2964,6 +2964,41 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  String _formatBookingTimeRange(Map<String, dynamic> bookingDate) {
+    final slots = List<dynamic>.from(bookingDate['slots'] ?? []);
+    if (slots.isNotEmpty) {
+      final firstSlot = slots.first;
+      final lastSlot = slots.last;
+
+      String? startTime;
+      String? endTime;
+
+      final firstRange = firstSlot['time_range']?.toString() ?? '';
+      if (firstRange.contains(' - ')) {
+        startTime = firstRange.split(' - ').first.trim();
+      } else if (firstSlot['from_time'] != null && firstSlot['from_time'].toString().isNotEmpty) {
+        startTime = firstSlot['from_time'].toString();
+      }
+
+      final lastRange = lastSlot['time_range']?.toString() ?? '';
+      if (lastRange.contains(' - ')) {
+        endTime = lastRange.split(' - ').last.trim();
+      } else if (lastSlot['to_time'] != null && lastSlot['to_time'].toString().isNotEmpty) {
+        endTime = lastSlot['to_time'].toString();
+      }
+
+      if (startTime != null && endTime != null && startTime.isNotEmpty && endTime.isNotEmpty) {
+        return '$startTime - $endTime';
+      }
+    }
+
+    final summary = bookingDate['summary_text']?.toString() ?? '';
+    if (summary.contains('slot') || summary.contains('slots')) {
+      return 'N/A';
+    }
+    return summary.isNotEmpty ? summary : 'N/A';
+  }
+
   // 2. BOOKINGS VIEW
   Widget _buildBookingsView() {
     final theme = Theme.of(context);
@@ -3231,7 +3266,7 @@ class _MainScreenState extends State<MainScreen> {
                           children: [
                             const Icon(Icons.schedule, size: 16, color: Colors.grey),
                             const SizedBox(width: 8),
-                            Text(b['summary_text'] ?? '', style: const TextStyle(color: Colors.grey)),
+                            Text(_formatBookingTimeRange(b), style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
                           ],
                         ),
                         const SizedBox(height: 12),
