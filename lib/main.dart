@@ -63,6 +63,25 @@ class _MyAppState extends State<MyApp> {
       _userEmail = user['email'];
       _userMobile = user['mobile'];
     });
+
+    _registerDeviceToken(token);
+  }
+
+  Future<void> _registerDeviceToken(String token) async {
+    try {
+      final deviceToken = 'fcm_device_token_' + DateTime.now().millisecondsSinceEpoch.toString();
+      await http.post(
+        Uri.parse('$_baseUrl/user/device-token'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'device_token': deviceToken,
+          'device_type': 'android',
+        }),
+      );
+    } catch (_) {}
   }
 
   void _onLogout() async {
