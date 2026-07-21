@@ -7020,18 +7020,22 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                 final int id = slot['id'];
                 final String label = slot['time_label'] ?? '';
                 final double price = (slot['price'] as num).toDouble();
-                final bool isBooked = _selectedType == BookingType.day && slot['is_booked'] == true;
+                final bool isLocked = slot['is_locked'] == true;
+                final String lockReason = slot['lock_reason'] ?? 'Maintenance';
+                final bool isBooked = (_selectedType == BookingType.day && slot['is_booked'] == true) || isLocked;
                 final bool isSelected = _selectedSlotIds.contains(id);
 
                 if (isBooked) {
                   return Container(
                     decoration: BoxDecoration(
-                      color: isDark 
-                          ? Colors.black.withValues(alpha: 0.2) 
-                          : Colors.grey[100]?.withValues(alpha: 0.8),
+                      color: isLocked
+                          ? (isDark ? Colors.amber[900]?.withValues(alpha: 0.2) : Colors.amber[50])
+                          : (isDark ? Colors.black.withValues(alpha: 0.2) : Colors.grey[100]?.withValues(alpha: 0.8)),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isDark ? Colors.grey[900]! : Colors.grey[200]!,
+                        color: isLocked
+                            ? (isDark ? Colors.amber[800]! : Colors.amber[300]!)
+                            : (isDark ? Colors.grey[900]! : Colors.grey[200]!),
                         width: 1,
                       ),
                     ),
@@ -7042,9 +7046,9 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                           top: 0,
                           right: 0,
                           child: Icon(
-                            Icons.lock_outline, 
+                            isLocked ? Icons.lock : Icons.lock_outline, 
                             size: 14, 
-                            color: Colors.grey.withValues(alpha: 0.5),
+                            color: isLocked ? Colors.amber[600] : Colors.grey.withValues(alpha: 0.5),
                           ),
                         ),
                         Align(
@@ -7060,17 +7064,19 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                                   fontWeight: FontWeight.w500,
                                   color: isDark ? Colors.grey[600] : Colors.grey[400],
                                   decoration: TextDecoration.lineThrough,
-                                  decorationColor: Colors.red.withValues(alpha: 0.4),
+                                  decorationColor: isLocked ? Colors.amber.withValues(alpha: 0.4) : Colors.red.withValues(alpha: 0.4),
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Booked',
+                                isLocked ? 'Locked ($lockReason)' : 'Booked',
                                 style: TextStyle(
-                                  color: Colors.red[400],
+                                  color: isLocked ? Colors.amber[700] : Colors.red[400],
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
