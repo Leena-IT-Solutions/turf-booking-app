@@ -1036,7 +1036,7 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  Future<void> _cancelBooking(int bookingId) async {
+  Future<void> _cancelBooking(int bookingId, {List<int>? bookingDateIds}) async {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1044,6 +1044,11 @@ class _MainScreenState extends State<MainScreen> {
     );
 
     try {
+      final bodyMap = <String, dynamic>{};
+      if (bookingDateIds != null && bookingDateIds.isNotEmpty) {
+        bodyMap['booking_date_ids'] = bookingDateIds;
+      }
+
       final response = await http.post(
         Uri.parse('$_baseUrl/bookings/$bookingId/cancel'),
         headers: {
@@ -1051,17 +1056,18 @@ class _MainScreenState extends State<MainScreen> {
           'Accept': 'application/json',
           'Authorization': 'Bearer ${widget.token}',
         },
+        body: jsonEncode(bodyMap),
       );
 
       if (mounted) Navigator.pop(context);
 
+      final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
-        _showSuccess('Booking cancelled successfully.');
+        _showSuccess(data['message'] ?? 'Booking cancelled successfully.');
         _fetchBookings(refresh: true);
         _fetchClientBookings();
         _fetchDashboardStats();
       } else {
-        final data = jsonDecode(response.body);
         _showError(data['message'] ?? 'Failed to cancel booking.');
       }
     } catch (e) {
@@ -3769,13 +3775,30 @@ class _MainScreenState extends State<MainScreen> {
                           showDialog(
                             context: context,
                             builder: (BuildContext dialogContext) {
+                              final String dateName = bookingDate['booking_date'] ?? 'this date';
                               return AlertDialog(
                                 title: const Text('Cancel Booking'),
-                                content: const Text('Are you sure you want to cancel this booking? This action will free up the selected slots.'),
+                                content: Text('Do you want to cancel only $dateName or all dates of this booking?'),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(dialogContext),
-                                    child: const Text('No'),
+                                    child: const Text('Keep Booking'),
+                                  ),
+                                  OutlinedButton(
+                                    onPressed: () {
+                                      Navigator.pop(dialogContext);
+                                      Navigator.pop(context);
+                                      final bookingId = bookingDate['booking_id'];
+                                      final bookingDateId = bookingDate['id'];
+                                      if (bookingId != null && bookingDateId != null) {
+                                        _cancelBooking(bookingId, bookingDateIds: [bookingDateId]);
+                                      }
+                                    },
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.red,
+                                      side: const BorderSide(color: Colors.red),
+                                    ),
+                                    child: Text('Cancel $dateName'),
                                   ),
                                   ElevatedButton(
                                     onPressed: () {
@@ -3790,7 +3813,7 @@ class _MainScreenState extends State<MainScreen> {
                                       backgroundColor: Colors.red,
                                       foregroundColor: Colors.white,
                                     ),
-                                    child: const Text('Yes, Cancel'),
+                                    child: const Text('Cancel All Dates'),
                                   ),
                                 ],
                               );
