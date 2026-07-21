@@ -3464,6 +3464,47 @@ class _MainScreenState extends State<MainScreen> {
                         : 'No cancellation allowed',
                     valueColor: isCancellationActive ? Colors.green : Colors.red,
                   ),
+                  if (isCancelled) ...[
+                    const SizedBox(height: 12),
+                    _buildDetailRow(
+                      Icons.event_busy,
+                      'Cancelled At',
+                      bookingDate['cancelled_at'] ?? 'N/A',
+                      valueColor: Colors.red,
+                    ),
+                    if ((bookingDate['cancellation_fee_applied'] ?? 0) > 0) ...[
+                      const SizedBox(height: 12),
+                      _buildDetailRow(
+                        Icons.money_off,
+                        'Fee Applied',
+                        '₹${(bookingDate['cancellation_fee_applied'] ?? 0).toStringAsFixed(0)}',
+                        valueColor: Colors.orange,
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    _buildDetailRow(
+                      Icons.currency_rupee,
+                      'Refund Amount',
+                      '₹${(bookingDate['refund_amount'] ?? 0).toStringAsFixed(0)}',
+                      valueColor: Colors.green,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDetailRow(
+                      Icons.info_outline,
+                      'Refund Status',
+                      bookingDate['refund_status'] ?? 'None',
+                      valueColor: (bookingDate['refund_status'] == 'Refunded') ? Colors.green : Colors.grey,
+                    ),
+                    if (bookingDate['refunded_at'] != null) ...[
+                      const SizedBox(height: 12),
+                      _buildDetailRow(
+                        Icons.history,
+                        'Refunded At',
+                        bookingDate['refunded_at'] ?? 'N/A',
+                        valueColor: Colors.green,
+                      ),
+                    ],
+                  ],
                   const SizedBox(height: 24),
                   const Divider(),
                   const SizedBox(height: 16),
