@@ -4018,12 +4018,14 @@ class _MainScreenState extends State<MainScreen> {
                         _fetchClientBookings();
                         _fetchDashboardStats();
                       } else {
+                        if (!context.mounted) return;
                         final msg = jsonDecode(response.body)['message'] ?? 'Failed to record payment.';
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(msg), backgroundColor: Colors.red),
                         );
                       }
                     } catch (e) {
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red),
                       );
