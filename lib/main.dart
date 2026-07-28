@@ -8711,12 +8711,15 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                 Row(
                                   children: ['Cash', 'UPI', 'Other'].map((method) {
                                     return Expanded(
+                                      // ignore: deprecated_member_use
                                       child: RadioListTile<String>(
                                         title: Text(method, style: const TextStyle(fontSize: 12)),
                                         value: method,
+                                        // ignore: deprecated_member_use
                                         groupValue: _paymentMethod,
                                         contentPadding: EdgeInsets.zero,
                                         activeColor: theme.colorScheme.primary,
+                                        // ignore: deprecated_member_use
                                         onChanged: (val) {
                                           if (val != null) {
                                             setState(() {
@@ -8990,11 +8993,14 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                             ),
                             const Divider(height: 24),
                             if (isPayAtLocation)
+                              // ignore: deprecated_member_use
                               RadioListTile<String>(
                                 title: const Text('Pay at Location'),
                                 subtitle: const Text('Full payment will be paid at location'),
                                 value: 'offline',
+                                // ignore: deprecated_member_use
                                 groupValue: _paymentMethod,
+                                // ignore: deprecated_member_use
                                 onChanged: (val) {
                                   if (val != null) setState(() => _paymentMethod = val);
                                 },
@@ -9002,11 +9008,14 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                 contentPadding: EdgeInsets.zero,
                               ),
                             if (isOnlinePayment)
+                              // ignore: deprecated_member_use
                               RadioListTile<String>(
                                 title: const Text('Pay Online'),
                                 subtitle: const Text('Pay full amount securely via Credit Card, Netbanking, or UPI'),
                                 value: 'razorpay_full',
+                                // ignore: deprecated_member_use
                                 groupValue: _paymentMethod,
+                                // ignore: deprecated_member_use
                                 onChanged: (val) {
                                   if (val != null) setState(() => _paymentMethod = val);
                                 },
@@ -9014,11 +9023,14 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                 contentPadding: EdgeInsets.zero,
                               ),
                             if (isPartPayment)
+                              // ignore: deprecated_member_use
                               RadioListTile<String>(
                                 title: const Text('Part Payment'),
                                 subtitle: const Text('Accepts part payment online, remaining will be taken at the turf'),
                                 value: 'razorpay_part',
+                                // ignore: deprecated_member_use
                                 groupValue: _paymentMethod,
+                                // ignore: deprecated_member_use
                                 onChanged: (val) {
                                   if (val != null) setState(() => _paymentMethod = val);
                                 },
@@ -9026,11 +9038,14 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                 contentPadding: EdgeInsets.zero,
                               ),
                             if (!isPayAtLocation && !isOnlinePayment && !isPartPayment)
+                              // ignore: deprecated_member_use
                               RadioListTile<String>(
                                 title: const Text('Pay at Location'),
                                 subtitle: const Text('Full payment will be paid at location'),
                                 value: 'offline',
+                                // ignore: deprecated_member_use
                                 groupValue: _paymentMethod,
+                                // ignore: deprecated_member_use
                                 onChanged: (val) {
                                   if (val != null) setState(() => _paymentMethod = val);
                                 },
