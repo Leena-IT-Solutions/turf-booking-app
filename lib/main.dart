@@ -70,7 +70,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _registerDeviceToken(String token) async {
     try {
-      final deviceToken = 'fcm_device_token_' + DateTime.now().millisecondsSinceEpoch.toString();
+      final deviceToken = 'fcm_device_token_${DateTime.now().millisecondsSinceEpoch}';
       await http.post(
         Uri.parse('$_baseUrl/user/device-token'),
         headers: {
@@ -2508,7 +2508,7 @@ class _MainScreenState extends State<MainScreen> {
           _buildBody(),
           if (_profileLoading)
             Container(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               child: const Center(
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
@@ -4634,13 +4634,13 @@ class _MainScreenState extends State<MainScreen> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.withOpacity(0.1)),
+        side: BorderSide(color: Colors.grey.withValues(alpha: 0.1)),
       ),
       child: ListTile(
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFF10B981).withOpacity(0.08),
+            color: const Color(0xFF10B981).withValues(alpha: 0.08),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, size: 20, color: const Color(0xFF10B981)),
@@ -4666,14 +4666,14 @@ class _MainScreenState extends State<MainScreen> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.withOpacity(0.1)),
+        side: BorderSide(color: Colors.grey.withValues(alpha: 0.1)),
       ),
       child: ListTile(
         onTap: onTap,
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.08),
+            color: iconColor.withValues(alpha: 0.08),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, size: 22, color: iconColor),
@@ -4926,7 +4926,7 @@ class _MainScreenState extends State<MainScreen> {
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: badgeColor.withOpacity(0.1),
+                                            color: badgeColor.withValues(alpha: 0.1),
                                             borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: Text(
@@ -5274,7 +5274,7 @@ class _MainScreenState extends State<MainScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: color.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(icon, color: color, size: 20),
@@ -6509,7 +6509,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
   List<dynamic> _slots = [];
   bool _slotsLoading = false;
   final List<int> _selectedSlotIds = [];
-  bool _submittingBooking = false;
+  final bool _submittingBooking = false;
   int _minSlotsBooking = 2;
 
   @override
@@ -8567,7 +8567,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                               subtitle: const Text('Select another user to associate this booking with'),
                               value: _bookOnBehalf,
                               contentPadding: EdgeInsets.zero,
-                              activeColor: theme.colorScheme.primary,
+                              activeThumbColor: theme.colorScheme.primary,
                               onChanged: (val) {
                                 setState(() {
                                   _bookOnBehalf = val;
