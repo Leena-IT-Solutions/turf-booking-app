@@ -5982,7 +5982,7 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                                   children: [
                                     // Top Row: Code Tag + Discount Ribbon
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.between,
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
