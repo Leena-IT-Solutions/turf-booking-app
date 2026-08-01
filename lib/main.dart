@@ -2877,7 +2877,12 @@ class _MainScreenState extends State<MainScreen> {
               builder: (context) => TurfDetailScreen(turf: turf, token: widget.token),
             ),
           );
-          if (result == 'show_bookings' && mounted) {
+          if (result == 'show_client_bookings' && mounted) {
+            setState(() {
+              _currentIndex = 4;
+            });
+            _fetchClientBookings();
+          } else if (result == 'show_bookings' && mounted) {
             setState(() {
               _currentIndex = 1;
             });
@@ -6395,8 +6400,8 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                       ),
                     ),
                   );
-                  if (result == 'show_bookings' && mounted) {
-                    navigator.pop('show_bookings');
+                  if ((result == 'show_bookings' || result == 'show_client_bookings') && mounted) {
+                    navigator.pop(result);
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -7649,8 +7654,8 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
         ),
       ),
     );
-    if (result == 'show_bookings' && mounted) {
-      navigator.pop('show_bookings');
+    if ((result == 'show_bookings' || result == 'show_client_bookings') && mounted) {
+      navigator.pop(result);
     }
   }
 
@@ -8650,7 +8655,11 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
           ),
         );
         
-        navigator.pop('show_bookings');
+        if (_bookOnBehalf) {
+          navigator.pop('show_client_bookings');
+        } else {
+          navigator.pop('show_bookings');
+        }
       } else {
         final errorMsg = jsonDecode(response.body)['message'] ?? 'Booking failed. Please try again.';
         scaffoldMessenger.showSnackBar(SnackBar(content: Text(errorMsg), backgroundColor: Colors.red));
