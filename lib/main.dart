@@ -9163,21 +9163,6 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                               ],
                             ),
                             const Divider(height: 24),
-                            if (isPayAtLocation)
-                              // ignore: deprecated_member_use
-                              RadioListTile<String>(
-                                title: const Text('Pay at Location'),
-                                subtitle: const Text('Full payment will be paid at location'),
-                                value: 'offline',
-                                // ignore: deprecated_member_use
-                                groupValue: _paymentMethod,
-                                // ignore: deprecated_member_use
-                                onChanged: (val) {
-                                  if (val != null) setState(() => _paymentMethod = val);
-                                },
-                                activeColor: theme.colorScheme.primary,
-                                contentPadding: EdgeInsets.zero,
-                              ),
                             if (isOnlinePayment)
                               // ignore: deprecated_member_use
                               RadioListTile<String>(
@@ -9199,6 +9184,21 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                 title: const Text('Part Payment'),
                                 subtitle: const Text('Accepts part payment online, remaining will be taken at the turf'),
                                 value: 'razorpay_part',
+                                // ignore: deprecated_member_use
+                                groupValue: _paymentMethod,
+                                // ignore: deprecated_member_use
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _paymentMethod = val);
+                                },
+                                activeColor: theme.colorScheme.primary,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            if (isPayAtLocation)
+                              // ignore: deprecated_member_use
+                              RadioListTile<String>(
+                                title: const Text('Pay at Location'),
+                                subtitle: const Text('Full payment will be paid at location'),
+                                value: 'offline',
                                 // ignore: deprecated_member_use
                                 groupValue: _paymentMethod,
                                 // ignore: deprecated_member_use
