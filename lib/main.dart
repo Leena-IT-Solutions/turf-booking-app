@@ -6750,10 +6750,11 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         
-        // Dont show booked slots for long and scattered booking
+        // Dont show booked slots and slot locks for long and scattered booking
         if (_selectedType == BookingType.long || _selectedType == BookingType.scattered) {
           for (var s in data) {
             s['is_booked'] = false;
+            s['is_locked'] = false;
           }
         }
 
@@ -7212,9 +7213,9 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                 final int id = slot['id'];
                 final String label = slot['time_label'] ?? '';
                 final double price = (slot['price'] as num).toDouble();
-                final bool isLocked = slot['is_locked'] == true;
+                final bool isLocked = (_selectedType == BookingType.day) && (slot['is_locked'] == true);
                 final String lockReason = slot['lock_reason'] ?? 'Maintenance';
-                final bool isBooked = (_selectedType == BookingType.day && slot['is_booked'] == true) || isLocked;
+                final bool isBooked = (_selectedType == BookingType.day) && (slot['is_booked'] == true || slot['is_locked'] == true);
                 final bool isSelected = _selectedSlotIds.contains(id);
 
                 if (isBooked) {
@@ -7402,7 +7403,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
     if (tappedIndex == -1) return;
 
     final tappedSlot = _slots[tappedIndex];
-    final bool isBooked = _selectedType == BookingType.day && tappedSlot['is_booked'] == true;
+    final bool isBooked = _selectedType == BookingType.day && (tappedSlot['is_booked'] == true || tappedSlot['is_locked'] == true);
     if (isBooked) return;
 
     final bool isSelected = _selectedSlotIds.contains(tappedId);
