@@ -8060,6 +8060,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   double _amountReceived = 0.0;
   double _additionalDiscount = 0.0;
   bool _hasSearchedCustomers = false;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -8087,8 +8088,13 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       final double? parsed = double.tryParse(text);
       final double newDiscount = (parsed != null && parsed >= 0) ? parsed : 0.0;
       if (newDiscount != _additionalDiscount) {
-        _additionalDiscount = newDiscount;
-        _fetchPreview();
+        setState(() {
+          _additionalDiscount = newDiscount;
+        });
+        _debounceTimer?.cancel();
+        _debounceTimer = Timer(const Duration(milliseconds: 350), () {
+          _fetchPreview(showFullLoader: false);
+        });
       }
     });
 
@@ -8109,6 +8115,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _razorpay.clear();
     _searchController.dispose();
     _amountReceivedController.dispose();
@@ -8146,13 +8153,15 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       _userRoles = prefs.getStringList('user_roles') ?? [];
       _manageableTurfIds = prefs.getStringList('manageable_turf_ids') ?? [];
     });
-    _fetchPreview();
+    _fetchPreview(showFullLoader: true);
   }
 
-  Future<void> _fetchPreview() async {
-    setState(() {
-      _previewLoading = true;
-    });
+  Future<void> _fetchPreview({bool showFullLoader = false}) async {
+    if (showFullLoader || _previewData == null) {
+      setState(() {
+        _previewLoading = true;
+      });
+    }
 
     try {
       final response = await http.post(
@@ -8173,19 +8182,25 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() {
-          _previewData = data;
-          _previewLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _previewData = data;
+            _previewLoading = false;
+          });
+        }
       } else {
+        if (mounted) {
+          setState(() {
+            _previewLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
           _previewLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        _previewLoading = false;
-      });
       debugPrint('Error fetching preview: $e');
     }
   }
@@ -8666,7 +8681,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
         backgroundColor: theme.colorScheme.primary,
         foregroundColor: Colors.white,
       ),
-      body: (_configLoading || _previewLoading)
+      body: (_configLoading || (_previewLoading && _previewData == null))
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
