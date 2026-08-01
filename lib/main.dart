@@ -8053,10 +8053,12 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   bool _bookOnBehalf = false;
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _amountReceivedController = TextEditingController();
+  final TextEditingController _additionalDiscountController = TextEditingController();
   bool _searchingCustomers = false;
   List<dynamic> _searchedCustomers = [];
   Map<String, dynamic>? _selectedCustomer;
   double _amountReceived = 0.0;
+  double _additionalDiscount = 0.0;
   bool _hasSearchedCustomers = false;
 
   @override
@@ -8080,6 +8082,16 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       });
     });
 
+    _additionalDiscountController.addListener(() {
+      final text = _additionalDiscountController.text.trim();
+      final double? parsed = double.tryParse(text);
+      final double newDiscount = (parsed != null && parsed >= 0) ? parsed : 0.0;
+      if (newDiscount != _additionalDiscount) {
+        _additionalDiscount = newDiscount;
+        _fetchPreview();
+      }
+    });
+
     _fetchConfig();
     _loadUserProfile();
     
@@ -8100,6 +8112,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     _razorpay.clear();
     _searchController.dispose();
     _amountReceivedController.dispose();
+    _additionalDiscountController.dispose();
     _topCouponController.dispose();
     for (final controller in _couponControllers.values) {
       controller.dispose();
@@ -8154,6 +8167,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
           'booking_dates': widget.dates,
           'booking_type': widget.bookingType.name,
           'coupons': _dateCoupons,
+          if (_bookOnBehalf && _additionalDiscount > 0) 'additional_discount': _additionalDiscount,
         }),
       );
 
@@ -8441,12 +8455,20 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     return totalSlotsPrice * widget.dates.length;
   }
 
-  double get _discount {
-    if (_previewData != null) {
-      return (_previewData!['discount'] as num).toDouble();
+  double get _couponDiscount {
+    if (_previewData != null && _previewData!['coupon_discount'] != null) {
+      return (_previewData!['coupon_discount'] as num).toDouble();
     }
     return 0.0;
   }
+
+  double get _additionalDiscountVal {
+    if (_previewData != null && _previewData!['additional_discount'] != null) {
+      return (_previewData!['additional_discount'] as num).toDouble();
+    }
+    return _bookOnBehalf ? _additionalDiscount : 0.0;
+  }
+
 
   double get _totalToPay {
     if (_previewData != null) {
@@ -8558,6 +8580,9 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       requestBody['customer_id'] = _selectedCustomer!['id'];
       requestBody['payment_method'] = _paymentMethod;
       requestBody['amount_received'] = _amountReceived;
+      if (_additionalDiscount > 0) {
+        requestBody['additional_discount'] = _additionalDiscount;
+      }
     } else {
       requestBody['payment_method'] = (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part') ? 'App' : 'offline';
       requestBody['payment_option'] = _paymentMethod == 'razorpay_part' ? 'part' : 'full';
@@ -8904,13 +8929,23 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                 ),
                                 const SizedBox(height: 12),
                                 TextField(
+                                  controller: _additionalDiscountController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Additional Discount (₹)',
+                                    hintText: 'Enter manual discount amount (if any)',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
                                   controller: _amountReceivedController,
                                   decoration: InputDecoration(
                                     labelText: 'Amount Received (₹)',
                                     hintText: 'Enter amount collected now',
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                   ),
-                                  keyboardType: TextInputType.number,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                 ),
                               ],
                             ],
@@ -9245,13 +9280,23 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                               Text('₹${_subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w500)),
                             ],
                           ),
-                          if (_discount > 0) ...[
+                          if (_couponDiscount > 0) ...[
                             const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Coupon Discount', style: TextStyle(color: Colors.green)),
-                                Text('-₹${_discount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                                Text('-₹${_couponDiscount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ],
+                          if (_additionalDiscountVal > 0) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Additional Discount', style: TextStyle(color: Colors.teal)),
+                                Text('-₹${_additionalDiscountVal.toStringAsFixed(2)}', style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ],
