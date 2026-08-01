@@ -1015,6 +1015,26 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  bool _isPastBooking(Map<String, dynamic> bDate) {
+    final String dateRaw = (bDate['date_raw'] ?? '').toString();
+    if (dateRaw.isEmpty) return false;
+    final now = DateTime.now();
+    final String todayStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+
+    if (dateRaw.compareTo(todayStr) < 0) return true;
+    if (dateRaw.compareTo(todayStr) > 0) return false;
+
+    // If dateRaw == todayStr, check slot time
+    final slots = bDate['slots'] as List? ?? [];
+    if (slots.isEmpty) return false;
+    final lastSlot = slots.last;
+    final String toTime = (lastSlot['to_time'] ?? lastSlot['from_time'] ?? '').toString();
+    if (toTime.isEmpty) return false;
+
+    final String currentTimeStr = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+    return toTime.compareTo(currentTimeStr) < 0;
+  }
+
   Future<void> _fetchClientBookings() async {
     if (mounted) {
       setState(() {
@@ -1039,7 +1059,14 @@ class _MainScreenState extends State<MainScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (mounted) {
-          final List<dynamic> list = List<dynamic>.from(data['data'] ?? []);
+          List<dynamic> list = List<dynamic>.from(data['data'] ?? []);
+
+          if (_clientBookingFilter == 'upcoming') {
+            list = list.where((item) => !_isPastBooking(item as Map<String, dynamic>)).toList();
+          } else if (_clientBookingFilter == 'past') {
+            list = list.where((item) => _isPastBooking(item as Map<String, dynamic>)).toList();
+          }
+
           list.sort((a, b) {
             final slotsA = a['slots'] as List? ?? [];
             final slotsB = b['slots'] as List? ?? [];
@@ -1047,6 +1074,7 @@ class _MainScreenState extends State<MainScreen> {
             final timeB = slotsB.isNotEmpty ? (slotsB[0]['from_time'] ?? '') : '';
             return timeA.compareTo(timeB);
           });
+
           setState(() {
             _clientBookings = list;
             _clientBookingsLoading = false;
@@ -4704,6 +4732,7 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildClientBookingView() {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     final dateStr = "${_clientBookingSelectedDate.day} ${[
       "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
@@ -4785,7 +4814,7 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
 
-        // Upcoming / Past Filter Pills
+        // All / Upcoming / Past Filter Pills
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
           child: Container(
@@ -4796,6 +4825,48 @@ class _MainScreenState extends State<MainScreen> {
             ),
             child: Row(
               children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      if (_clientBookingFilter != 'all') {
+                        setState(() {
+                          _clientBookingFilter = 'all';
+                        });
+                        _fetchClientBookings();
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _clientBookingFilter == 'all'
+                            ? theme.colorScheme.primary
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: _clientBookingFilter == 'all'
+                            ? [
+                                BoxShadow(
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : [],
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'All',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: _clientBookingFilter == 'all'
+                              ? Colors.white
+                              : theme.textTheme.bodyMedium?.color,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
                 Expanded(
                   child: InkWell(
                     onTap: () {
@@ -4999,9 +5070,10 @@ class _MainScreenState extends State<MainScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         itemCount: _clientBookings.length,
                         itemBuilder: (ctx, idx) {
-                          final bDate = _clientBookings[idx];
+                          final bDate = _clientBookings[idx] as Map<String, dynamic>;
                           final isCancelled = bDate['status'] == 'Cancelled';
                           final status = isCancelled ? 'Cancelled' : (bDate['date_payment_status'] ?? 'Unpaid');
+                          final isPast = _isPastBooking(bDate);
                           
                           Color badgeColor = Colors.red;
                           if (isCancelled) {
@@ -5015,9 +5087,17 @@ class _MainScreenState extends State<MainScreen> {
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
                             elevation: 0,
+                            color: isPast
+                                ? (isDark ? const Color(0xFF1E2022) : const Color(0xFFF3F4F6))
+                                : (isDark ? const Color(0xFF26292B) : Colors.white),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
-                              side: BorderSide(color: Colors.grey.withAlpha(20)),
+                              side: BorderSide(
+                                color: isPast
+                                    ? Colors.blueGrey.withValues(alpha: 0.2)
+                                    : theme.colorScheme.primary.withValues(alpha: 0.25),
+                                width: isPast ? 1 : 1.5,
+                              ),
                             ),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(16),
@@ -5033,13 +5113,50 @@ class _MainScreenState extends State<MainScreen> {
                                         Expanded(
                                           child: Text(
                                             bDate['turf_name'] ?? 'Unknown Turf',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 16,
+                                              color: isPast ? Colors.grey[600] : null,
                                             ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
+                                        const SizedBox(width: 6),
+                                        // Upcoming vs Past Color-Coded Chip
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: isPast
+                                                ? Colors.blueGrey.withValues(alpha: 0.12)
+                                                : Colors.teal.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: isPast
+                                                  ? Colors.blueGrey.withValues(alpha: 0.3)
+                                                  : Colors.teal.withValues(alpha: 0.3),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                isPast ? Icons.history : Icons.schedule,
+                                                size: 12,
+                                                color: isPast ? Colors.blueGrey : Colors.teal,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                isPast ? 'Past' : 'Upcoming',
+                                                style: TextStyle(
+                                                  color: isPast ? Colors.blueGrey : Colors.teal,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
