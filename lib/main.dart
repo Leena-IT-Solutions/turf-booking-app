@@ -5892,36 +5892,76 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
-                      height: 90,
+                      height: 145,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         itemCount: _coupons.length,
                         itemBuilder: (context, idx) {
                           final coupon = _coupons[idx];
                           final code = coupon['code'] ?? '';
+                          final description = coupon['description'] ?? '';
                           final minSlots = coupon['minimum_slots_to_be_ordered'] ?? 0;
                           final discountType = coupon['discount_type'] ?? '';
                           final discountValue = (coupon['discount_value'] is num)
                               ? coupon['discount_value'].toDouble()
-                              : double.tryParse(coupon['discount_value'].toString()) ?? 0.0;
+                              : double.tryParse(coupon['discount_value']?.toString() ?? '0') ?? 0.0;
+                          final maxDiscountAmount = (coupon['max_discount_amount'] is num)
+                              ? coupon['max_discount_amount'].toDouble()
+                              : (coupon['max_discount_amount'] != null ? double.tryParse(coupon['max_discount_amount'].toString()) : null);
 
                           String discountStr = '';
                           if (discountType == 'percentage') {
-                            discountStr = '${discountValue.toStringAsFixed(0)}% Off';
+                            discountStr = '${discountValue.toStringAsFixed(0)}% OFF';
                           } else {
-                            discountStr = '₹${discountValue.toStringAsFixed(0)} Off';
+                            discountStr = '₹${discountValue.toStringAsFixed(0)} OFF';
+                          }
+
+                          // Calculate valid days
+                          final days = <String>[];
+                          if (coupon['mon'] == true) days.add('Mon');
+                          if (coupon['tue'] == true) days.add('Tue');
+                          if (coupon['wed'] == true) days.add('Wed');
+                          if (coupon['thu'] == true) days.add('Thu');
+                          if (coupon['fri'] == true) days.add('Fri');
+                          if (coupon['sat'] == true) days.add('Sat');
+                          if (coupon['sun'] == true) days.add('Sun');
+
+                          String validDaysStr = '';
+                          if (days.length == 7) {
+                            validDaysStr = 'All Days';
+                          } else if (days.length == 5 && !days.contains('Sat') && !days.contains('Sun')) {
+                            validDaysStr = 'Weekdays';
+                          } else if (days.length == 2 && days.contains('Sat') && days.contains('Sun')) {
+                            validDaysStr = 'Weekends';
+                          } else if (days.isNotEmpty) {
+                            validDaysStr = days.join(', ');
+                          }
+
+                          // Format expiry date
+                          String expireStr = '';
+                          if (coupon['expires_at'] != null && coupon['expires_at'].toString().isNotEmpty) {
+                            try {
+                              final expDate = DateTime.parse(coupon['expires_at'].toString());
+                              final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                              expireStr = '${expDate.day} ${months[expDate.month - 1]} ${expDate.year}';
+                            } catch (_) {
+                              expireStr = coupon['expires_at'].toString();
+                            }
                           }
 
                           return Card(
-                            margin: const EdgeInsets.only(right: 12),
+                            margin: const EdgeInsets.only(right: 14),
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              side: const BorderSide(color: Colors.green, width: 1.5),
+                              borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(
+                                color: Colors.green.withValues(alpha: isDark ? 0.6 : 0.8),
+                                width: 1.5,
+                              ),
                             ),
-                            color: isDark ? const Color(0xFF1E2022) : Colors.white,
+                            color: isDark ? const Color(0xFF1E2022) : Colors.green.withValues(alpha: 0.03),
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(20),
                               onTap: () {
                                 Clipboard.setData(ClipboardData(text: code));
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -5934,58 +5974,188 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                                 );
                               },
                               child: Container(
-                                width: 220,
+                                width: 280,
                                 padding: const EdgeInsets.all(12),
-                                child: Row(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.withValues(alpha: 0.15),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.confirmation_num_outlined,
-                                        color: Colors.green,
-                                        size: 20,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            code,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                              color: Colors.green,
-                                            ),
+                                    // Top Row: Code Tag + Discount Ribbon
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.between,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
                                           ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            discountStr,
-                                            style: TextStyle(
-                                              color: isDark ? Colors.white : Colors.black87,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          if (minSlots > 0) ...[
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              'Min slots: $minSlots',
-                                              style: TextStyle(
-                                                color: Colors.grey[600],
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w500,
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.local_offer, color: Colors.green, size: 14),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                code,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                  color: Colors.green,
+                                                  letterSpacing: 0.8,
+                                                ),
                                               ),
+                                            ],
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            discountStr,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                          ],
-                                        ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    // Description (if present)
+                                    if (description.toString().trim().isNotEmpty) ...[
+                                      Text(
+                                        description.toString(),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: isDark ? Colors.grey[300] : Colors.grey[700],
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
+                                    ],
+
+                                    // Details Chips / Badge Row
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: [
+                                        if (minSlots > 0)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: isDark ? Colors.grey[800] : Colors.grey[200],
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.filter_none, size: 10, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                                                const SizedBox(width: 3),
+                                                Text(
+                                                  'Min slots: $minSlots',
+                                                  style: TextStyle(
+                                                    color: isDark ? Colors.grey[300] : Colors.grey[800],
+                                                    fontSize: 9.5,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        if (maxDiscountAmount != null && maxDiscountAmount > 0 && discountType == 'percentage')
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: isDark ? Colors.grey[800] : Colors.grey[200],
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.arrow_downward, size: 10, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                                                const SizedBox(width: 3),
+                                                Text(
+                                                  'Max cap: ₹${maxDiscountAmount.toStringAsFixed(0)}',
+                                                  style: TextStyle(
+                                                    color: isDark ? Colors.grey[300] : Colors.grey[800],
+                                                    fontSize: 9.5,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        if (validDaysStr.isNotEmpty)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: isDark ? Colors.grey[800] : Colors.grey[200],
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.calendar_today, size: 10, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                                                const SizedBox(width: 3),
+                                                Text(
+                                                  validDaysStr,
+                                                  style: TextStyle(
+                                                    color: isDark ? Colors.grey[300] : Colors.grey[800],
+                                                    fontSize: 9.5,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        if (expireStr.isNotEmpty)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: isDark ? Colors.grey[800] : Colors.grey[200],
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.timer_outlined, size: 10, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                                                const SizedBox(width: 3),
+                                                Text(
+                                                  'Till $expireStr',
+                                                  style: TextStyle(
+                                                    color: isDark ? Colors.grey[300] : Colors.grey[800],
+                                                    fontSize: 9.5,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+
+                                    // Bottom Copy Hint
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          'Tap to copy code',
+                                          style: TextStyle(
+                                            color: Colors.grey[500],
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w500,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Icon(Icons.copy, size: 10, color: Colors.grey[500]),
+                                      ],
                                     ),
                                   ],
                                 ),
