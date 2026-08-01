@@ -70,5 +70,9 @@
 		<false/>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>We need your location to show and search turf grounds near your current city.</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>We need your location to show and search turf grounds near your current city.</string>
+		<key>NSLocationAlwaysUsageDescription</key>
+		<string>We need your location to show and search turf grounds near your current city.</string>
 	</dict>
 </plist>
