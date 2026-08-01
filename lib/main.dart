@@ -935,6 +935,7 @@ class _MainScreenState extends State<MainScreen> {
 
   // Client Booking Screen state variables
   DateTime _clientBookingSelectedDate = DateTime.now();
+  String _clientBookingFilter = 'upcoming';
   List<dynamic> _clientBookings = [];
   bool _clientBookingsLoading = false;
 
@@ -1025,8 +1026,9 @@ class _MainScreenState extends State<MainScreen> {
     try {
       final dateStr = "${_clientBookingSelectedDate.year}-${_clientBookingSelectedDate.month.toString().padLeft(2, '0')}-${_clientBookingSelectedDate.day.toString().padLeft(2, '0')}";
       final turfParam = _clientBookingSelectedTurfId != null ? '&turf_id=$_clientBookingSelectedTurfId' : '';
+      final filterParam = '&filter=$_clientBookingFilter';
       final response = await http.get(
-        Uri.parse('$_baseUrl/bookings?date=$dateStr$turfParam'),
+        Uri.parse('$_baseUrl/bookings?date=$dateStr$filterParam$turfParam'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -1037,8 +1039,16 @@ class _MainScreenState extends State<MainScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (mounted) {
+          final List<dynamic> list = List<dynamic>.from(data['data'] ?? []);
+          list.sort((a, b) {
+            final slotsA = a['slots'] as List? ?? [];
+            final slotsB = b['slots'] as List? ?? [];
+            final timeA = slotsA.isNotEmpty ? (slotsA[0]['from_time'] ?? '') : '';
+            final timeB = slotsB.isNotEmpty ? (slotsB[0]['from_time'] ?? '') : '';
+            return timeA.compareTo(timeB);
+          });
           setState(() {
-            _clientBookings = List<dynamic>.from(data['data'] ?? []);
+            _clientBookings = list;
             _clientBookingsLoading = false;
           });
         }
@@ -4774,6 +4784,106 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ),
         ],
+
+        // Upcoming / Past Filter Pills
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      if (_clientBookingFilter != 'upcoming') {
+                        setState(() {
+                          _clientBookingFilter = 'upcoming';
+                        });
+                        _fetchClientBookings();
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _clientBookingFilter == 'upcoming'
+                            ? theme.colorScheme.primary
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: _clientBookingFilter == 'upcoming'
+                            ? [
+                                BoxShadow(
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : [],
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Upcoming',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: _clientBookingFilter == 'upcoming'
+                              ? Colors.white
+                              : theme.textTheme.bodyMedium?.color,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      if (_clientBookingFilter != 'past') {
+                        setState(() {
+                          _clientBookingFilter = 'past';
+                        });
+                        _fetchClientBookings();
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _clientBookingFilter == 'past'
+                            ? theme.colorScheme.primary
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: _clientBookingFilter == 'past'
+                            ? [
+                                BoxShadow(
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : [],
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Past',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: _clientBookingFilter == 'past'
+                              ? Colors.white
+                              : theme.textTheme.bodyMedium?.color,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
 
         // Date Selector Header Strip
         Padding(
