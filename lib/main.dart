@@ -114,6 +114,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const MaterialApp(
+        debugShowCheckedModeBanner: false,
         home: Scaffold(
           body: Center(
             child: CircularProgressIndicator(
@@ -125,6 +126,7 @@ class _MyAppState extends State<MyApp> {
     }
 
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Turf Booking',
       themeMode: ThemeMode.system,
       theme: ThemeData(
