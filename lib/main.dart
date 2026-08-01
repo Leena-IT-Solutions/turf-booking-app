@@ -1024,15 +1024,15 @@ class _MainScreenState extends State<MainScreen> {
     if (dateRaw.compareTo(todayStr) < 0) return true;
     if (dateRaw.compareTo(todayStr) > 0) return false;
 
-    // If dateRaw == todayStr, check slot time
+    // If dateRaw == todayStr, check slot start time
     final slots = bDate['slots'] as List? ?? [];
     if (slots.isEmpty) return false;
-    final lastSlot = slots.last;
-    final String toTime = (lastSlot['to_time'] ?? lastSlot['from_time'] ?? '').toString();
-    if (toTime.isEmpty) return false;
+    final firstSlot = slots.first;
+    final String fromTime = (firstSlot['from_time'] ?? '').toString();
+    if (fromTime.isEmpty) return false;
 
     final String currentTimeStr = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
-    return toTime.compareTo(currentTimeStr) < 0;
+    return fromTime.compareTo(currentTimeStr) < 0;
   }
 
   Future<void> _fetchClientBookings() async {
