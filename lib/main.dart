@@ -376,26 +376,8 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 201) {
-        final token = data['access_token'];
-        final user = data['user'] as Map<String, dynamic>;
-        widget.onLoginSuccess(token, user);
-        _showSuccess('Registration successful! Welcome, ${user['name']}!');
-      } else {
-        _showError(data['message'] ?? 'Registration failed.');
-      }
-    } catch (e) {
-      _showError('Network error. Please try again.');
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
   Future<void> _handleForgotRequest() async {
+
     if (!_forgotRequestFormKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -904,7 +886,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Enter the 6-digit verification code sent to ${_forgotEmailController.text}',
+            'Enter the 6-digit verification code sent to ${_forgotInputController.text}',
             style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
           ),
           const SizedBox(height: 20),
