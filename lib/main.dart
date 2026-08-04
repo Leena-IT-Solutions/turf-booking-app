@@ -998,10 +998,19 @@ class _AuthScreenState extends State<AuthScreen> {
                   )
                 : const Text('Reset Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
+          const SizedBox(height: 16),
+          Center(
+            child: TextButton.icon(
+              onPressed: () => setState(() => _state = AuthState.login),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Back to Login'),
+            ),
+          ),
         ],
       ),
     );
   }
+
 }
 
 // ---------------------------------------------------------------------------
