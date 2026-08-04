@@ -184,7 +184,7 @@ class _MyAppState extends State<MyApp> {
 // ---------------------------------------------------------------------------
 // AUTH SCREEN (LOGIN, REGISTER, FORGOT PASSWORD FLOWS)
 // ---------------------------------------------------------------------------
-enum AuthState { login, register, forgotRequest, forgotVerify, forgotReset }
+enum AuthState { login, register, regVerify, forgotRequest, forgotVerify, forgotReset }
 
 class AuthScreen extends StatefulWidget {
   final Function(String, Map<String, dynamic>) onLoginSuccess;
@@ -205,6 +205,7 @@ class _AuthScreenState extends State<AuthScreen> {
   // Form Keys
   final _loginFormKey = GlobalKey<FormState>();
   final _registerFormKey = GlobalKey<FormState>();
+  final _regVerifyFormKey = GlobalKey<FormState>();
   final _forgotRequestFormKey = GlobalKey<FormState>();
   final _forgotVerifyFormKey = GlobalKey<FormState>();
   final _forgotResetFormKey = GlobalKey<FormState>();
@@ -218,8 +219,9 @@ class _AuthScreenState extends State<AuthScreen> {
   final _regMobileController = TextEditingController();
   final _regPasswordController = TextEditingController();
   final _regConfirmPasswordController = TextEditingController();
+  final _regOtpController = TextEditingController();
 
-  final _forgotEmailController = TextEditingController();
+  final _forgotInputController = TextEditingController(); // Mobile or Email
   final _otpController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmNewPasswordController = TextEditingController();
@@ -282,12 +284,69 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  Future<void> _handleRegister() async {
+  // Step 1 Registration: Send WhatsApp OTP
+  Future<void> _handleSendRegOtp() async {
     if (!_registerFormKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/send-whatsapp-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'mobile': _regMobileController.text.trim(),
+          'purpose': 'registration',
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        final otpCode = data['otp'] ?? '';
+        if (otpCode.isNotEmpty) {
+          _regOtpController.text = otpCode;
+          _showSuccess('WhatsApp OTP Sent! Code "$otpCode" generated for testing.');
+        } else {
+          _showSuccess('WhatsApp OTP sent to ${_regMobileController.text.trim()}.');
+        }
+        setState(() => _state = AuthState.regVerify);
+      } else {
+        _showError(data['message'] ?? 'Failed to send WhatsApp OTP.');
+      }
+    } catch (e) {
+      _showError('Network error. Please try again.');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // Step 2 Registration: Verify WhatsApp OTP & Register User
+  Future<void> _handleVerifyRegOtpAndRegister() async {
+    if (!_regVerifyFormKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      // First verify WhatsApp OTP
+      final verifyResponse = await http.post(
+        Uri.parse('$_baseUrl/verify-whatsapp-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'mobile': _regMobileController.text.trim(),
+          'otp': _regOtpController.text.trim(),
+        }),
+      );
+
+      final verifyData = jsonDecode(verifyResponse.body);
+
+      if (verifyResponse.statusCode != 200) {
+        _showError(verifyData['message'] ?? 'Invalid or expired WhatsApp OTP.');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // If OTP valid, complete registration
       final response = await http.post(
         Uri.parse('$_baseUrl/register'),
         headers: {'Content-Type': 'application/json'},
@@ -317,30 +376,54 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 201) {
+        final token = data['access_token'];
+        final user = data['user'] as Map<String, dynamic>;
+        widget.onLoginSuccess(token, user);
+        _showSuccess('Registration successful! Welcome, ${user['name']}!');
+      } else {
+        _showError(data['message'] ?? 'Registration failed.');
+      }
+    } catch (e) {
+      _showError('Network error. Please try again.');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _handleForgotRequest() async {
     if (!_forgotRequestFormKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
+      final input = _forgotInputController.text.trim();
+      final isEmail = input.contains('@');
+
       final response = await http.post(
-        Uri.parse('$_baseUrl/forgot-password'),
+        Uri.parse(isEmail ? '$_baseUrl/forgot-password' : '$_baseUrl/send-whatsapp-otp'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': _forgotEmailController.text.trim(),
+        body: jsonEncode(isEmail ? {
+          'email': input,
+        } : {
+          'mobile': input,
+          'purpose': 'forgot_password',
         }),
       );
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        // Automatically prefill OTP in development for convenience
         final otpCode = data['otp'] ?? '';
         if (otpCode.isNotEmpty) {
           _otpController.text = otpCode;
-          _showSuccess('OTP Sent! code "$otpCode" has been generated for testing.');
+          _showSuccess('OTP Sent! Code "$otpCode" generated for testing.');
         } else {
-          _showSuccess('OTP Sent! Please check your email.');
+          _showSuccess(isEmail ? 'OTP sent to your email.' : 'OTP sent to your WhatsApp.');
         }
         setState(() => _state = AuthState.forgotVerify);
       } else {
@@ -359,11 +442,14 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final input = _forgotInputController.text.trim();
+      final isEmail = input.contains('@');
+
       final response = await http.post(
-        Uri.parse('$_baseUrl/verify-otp'),
+        Uri.parse(isEmail ? '$_baseUrl/verify-otp' : '$_baseUrl/verify-whatsapp-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'email': _forgotEmailController.text.trim(),
+          if (isEmail) 'email': input else 'mobile': input,
           'otp': _otpController.text.trim(),
         }),
       );
@@ -389,11 +475,15 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final input = _forgotInputController.text.trim();
+      final isEmail = input.contains('@');
+
       final response = await http.post(
         Uri.parse('$_baseUrl/reset-password'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'email': _forgotEmailController.text.trim(),
+          'login': input,
+          if (isEmail) 'email': input else 'mobile': input,
           'otp': _otpController.text.trim(),
           'password': _newPasswordController.text,
           'password_confirmation': _confirmNewPasswordController.text,
@@ -404,7 +494,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
       if (response.statusCode == 200) {
         _showSuccess('Password reset successfully. Please log in.');
-        _loginInputController.text = _forgotEmailController.text;
+        _loginInputController.text = input;
         _loginPasswordController.clear();
         setState(() => _state = AuthState.login);
       } else {
@@ -416,6 +506,7 @@ class _AuthScreenState extends State<AuthScreen> {
       setState(() => _isLoading = false);
     }
   }
+
 
   // --- UI BUILDING ---
 
@@ -467,6 +558,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 const SizedBox(height: 32),
                 if (_state == AuthState.login) _buildLoginForm(theme, isDark),
                 if (_state == AuthState.register) _buildRegisterForm(theme, isDark),
+                if (_state == AuthState.regVerify) _buildRegVerifyForm(theme, isDark),
                 if (_state == AuthState.forgotRequest) _buildForgotRequestForm(theme, isDark),
                 if (_state == AuthState.forgotVerify) _buildForgotVerifyForm(theme, isDark),
                 if (_state == AuthState.forgotReset) _buildForgotResetForm(theme, isDark),
@@ -577,7 +669,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Join us to book your favorite turf slots quickly',
+            'We will verify your mobile number via WhatsApp OTP',
             style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
           ),
           const SizedBox(height: 20),
@@ -640,7 +732,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: _isLoading ? null : _handleRegister,
+            onPressed: _isLoading ? null : _handleSendRegOtp,
             style: ElevatedButton.styleFrom(
               backgroundColor: theme.colorScheme.primary,
               foregroundColor: Colors.white,
@@ -653,7 +745,14 @@ class _AuthScreenState extends State<AuthScreen> {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
                   )
-                : const Text('Register', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.chat_outlined, size: 20),
+                      SizedBox(width: 8),
+                      Text('Get WhatsApp OTP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
           ),
           const SizedBox(height: 24),
           Row(
@@ -674,7 +773,69 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  // FORGOT REQUEST FORM (Enter Email)
+  // REGISTER VERIFY FORM (Enter WhatsApp OTP)
+  Widget _buildRegVerifyForm(ThemeData theme, bool isDark) {
+    return Form(
+      key: _regVerifyFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Verify WhatsApp OTP',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Enter the 6-digit WhatsApp OTP sent to ${_regMobileController.text}',
+            style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
+          ),
+          const SizedBox(height: 20),
+          TextFormField(
+            controller: _regOtpController,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8.0),
+            decoration: const InputDecoration(
+              counterText: '',
+              labelText: '6-Digit OTP',
+              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+            ),
+            validator: (value) => value == null || value.trim().length != 6 ? 'Enter 6-digit OTP' : null,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _isLoading ? null : _handleVerifyRegOtpAndRegister,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
+                  )
+                : const Text('Verify & Register', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed: _isLoading ? null : _handleSendRegOtp,
+            child: const Text('Resend WhatsApp OTP'),
+          ),
+          TextButton.icon(
+            onPressed: () => setState(() => _state = AuthState.register),
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Edit Registration Details'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // FORGOT REQUEST FORM (Enter Email or Mobile)
   Widget _buildForgotRequestForm(ThemeData theme, bool isDark) {
     return Form(
       key: _forgotRequestFormKey,
@@ -687,19 +848,19 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Enter your registered email address to receive an OTP',
+            'Enter your registered Email or Mobile number to receive OTP',
             style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
           ),
           const SizedBox(height: 20),
           TextFormField(
-            controller: _forgotEmailController,
+            controller: _forgotInputController,
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(
-              labelText: 'Email Address',
-              prefixIcon: Icon(Icons.email_outlined),
+              labelText: 'Email or Mobile Number',
+              prefixIcon: Icon(Icons.contact_mail_outlined),
               border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
             ),
-            validator: (value) => value == null || value.trim().isEmpty ? 'Please enter email' : null,
+            validator: (value) => value == null || value.trim().isEmpty ? 'Please enter email or mobile' : null,
           ),
           const SizedBox(height: 24),
           ElevatedButton(
@@ -728,6 +889,7 @@ class _AuthScreenState extends State<AuthScreen> {
       ),
     );
   }
+
 
   // FORGOT VERIFY FORM (Enter OTP)
   Widget _buildForgotVerifyForm(ThemeData theme, bool isDark) {
