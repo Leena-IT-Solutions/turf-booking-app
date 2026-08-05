@@ -184,7 +184,7 @@ class _MyAppState extends State<MyApp> {
 // ---------------------------------------------------------------------------
 // AUTH SCREEN (LOGIN, REGISTER, FORGOT PASSWORD FLOWS)
 // ---------------------------------------------------------------------------
-enum AuthState { login, register, regVerify, forgotRequest, forgotVerify, forgotReset }
+enum AuthState { login, regMobile, regOtp, regProfile, regPassword, forgotRequest, forgotVerify, forgotReset }
 
 class AuthScreen extends StatefulWidget {
   final Function(String, Map<String, dynamic>) onLoginSuccess;
@@ -204,8 +204,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
   // Form Keys
   final _loginFormKey = GlobalKey<FormState>();
-  final _registerFormKey = GlobalKey<FormState>();
-  final _regVerifyFormKey = GlobalKey<FormState>();
+  final _regMobileFormKey = GlobalKey<FormState>();
+  final _regOtpFormKey = GlobalKey<FormState>();
+  final _regProfileFormKey = GlobalKey<FormState>();
+  final _regPasswordFormKey = GlobalKey<FormState>();
   final _forgotRequestFormKey = GlobalKey<FormState>();
   final _forgotVerifyFormKey = GlobalKey<FormState>();
   final _forgotResetFormKey = GlobalKey<FormState>();
@@ -220,6 +222,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _regPasswordController = TextEditingController();
   final _regConfirmPasswordController = TextEditingController();
   final _regOtpController = TextEditingController();
+
 
   final _forgotInputController = TextEditingController(); // Mobile or Email
   final _otpController = TextEditingController();
@@ -284,9 +287,9 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  // Step 1 Registration: Send WhatsApp OTP
-  Future<void> _handleSendRegOtp() async {
-    if (!_registerFormKey.currentState!.validate()) return;
+  // Step 1 Registration: Enter Mobile & Send WhatsApp OTP
+  Future<void> _handleStep1SendMobileOtp() async {
+    if (!_regMobileFormKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
@@ -305,9 +308,8 @@ class _AuthScreenState extends State<AuthScreen> {
       if (response.statusCode == 200) {
         _regOtpController.clear();
         _showSuccess('WhatsApp OTP sent to ${_regMobileController.text.trim()}.');
-        setState(() => _state = AuthState.regVerify);
+        setState(() => _state = AuthState.regOtp);
       } else {
-
         _showError(data['message'] ?? 'Failed to send WhatsApp OTP.');
       }
     } catch (e) {
@@ -317,15 +319,14 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  // Step 2 Registration: Verify WhatsApp OTP & Register User
-  Future<void> _handleVerifyRegOtpAndRegister() async {
-    if (!_regVerifyFormKey.currentState!.validate()) return;
+  // Step 2 Registration: Verify WhatsApp OTP
+  Future<void> _handleStep2VerifyOtp() async {
+    if (!_regOtpFormKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      // First verify WhatsApp OTP
-      final verifyResponse = await http.post(
+      final response = await http.post(
         Uri.parse('$_baseUrl/verify-whatsapp-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -334,15 +335,34 @@ class _AuthScreenState extends State<AuthScreen> {
         }),
       );
 
-      final verifyData = jsonDecode(verifyResponse.body);
+      final data = jsonDecode(response.body);
 
-      if (verifyResponse.statusCode != 200) {
-        _showError(verifyData['message'] ?? 'Invalid or expired WhatsApp OTP.');
-        setState(() => _isLoading = false);
-        return;
+      if (response.statusCode == 200) {
+        _showSuccess('Mobile verified successfully!');
+        setState(() => _state = AuthState.regProfile);
+      } else {
+        _showError(data['message'] ?? 'Invalid or expired OTP.');
       }
+    } catch (e) {
+      _showError('Network error. Please try again.');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
-      // If OTP valid, complete registration
+  // Step 3 Registration: Save Name & Email -> Proceed to Password
+  void _handleStep3Profile() {
+    if (!_regProfileFormKey.currentState!.validate()) return;
+    setState(() => _state = AuthState.regPassword);
+  }
+
+  // Step 4 Registration: Complete Registration
+  Future<void> _handleStep4CompleteRegistration() async {
+    if (!_regPasswordFormKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
       final response = await http.post(
         Uri.parse('$_baseUrl/register'),
         headers: {'Content-Type': 'application/json'},
@@ -371,6 +391,7 @@ class _AuthScreenState extends State<AuthScreen> {
       setState(() => _isLoading = false);
     }
   }
+
 
   Future<void> _handleForgotRequest() async {
 
@@ -531,8 +552,10 @@ class _AuthScreenState extends State<AuthScreen> {
                 _buildLogoHeader(),
                 const SizedBox(height: 32),
                 if (_state == AuthState.login) _buildLoginForm(theme, isDark),
-                if (_state == AuthState.register) _buildRegisterForm(theme, isDark),
-                if (_state == AuthState.regVerify) _buildRegVerifyForm(theme, isDark),
+                if (_state == AuthState.regMobile) _buildRegMobileForm(theme, isDark),
+                if (_state == AuthState.regOtp) _buildRegOtpForm(theme, isDark),
+                if (_state == AuthState.regProfile) _buildRegProfileForm(theme, isDark),
+                if (_state == AuthState.regPassword) _buildRegPasswordForm(theme, isDark),
                 if (_state == AuthState.forgotRequest) _buildForgotRequestForm(theme, isDark),
                 if (_state == AuthState.forgotVerify) _buildForgotVerifyForm(theme, isDark),
                 if (_state == AuthState.forgotReset) _buildForgotResetForm(theme, isDark),
@@ -617,7 +640,7 @@ class _AuthScreenState extends State<AuthScreen> {
             children: [
               Text('Don\'t have an account? ', style: TextStyle(color: Colors.grey[600])),
               GestureDetector(
-                onTap: () => setState(() => _state = AuthState.register),
+                onTap: () => setState(() => _state = AuthState.regMobile),
                 child: Text(
                   'Sign Up',
                   style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
@@ -630,83 +653,78 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  // REGISTER FORM
-  Widget _buildRegisterForm(ThemeData theme, bool isDark) {
+
+  Widget _buildStepIndicator(int currentStep, String title, ThemeData theme, bool isDark) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Step $currentStep of 4: $title',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            Text(
+              '${currentStep * 25}%',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: currentStep / 4.0,
+            minHeight: 8,
+            backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+            valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  // STEP 1: MOBILE NUMBER INPUT
+  Widget _buildRegMobileForm(ThemeData theme, bool isDark) {
     return Form(
-      key: _registerFormKey,
+      key: _regMobileFormKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _buildStepIndicator(1, 'Mobile Verification', theme, isDark),
           const Text(
-            'Create Account',
+            'Enter Mobile Number',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           Text(
-            'We will verify your mobile number via WhatsApp OTP',
+            'We will send a 6-digit verification code via WhatsApp',
             style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
           ),
           const SizedBox(height: 20),
-          TextFormField(
-            controller: _regNameController,
-            decoration: const InputDecoration(
-              labelText: 'Full Name',
-              prefixIcon: Icon(Icons.person_outline),
-              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-            ),
-            validator: (value) => value == null || value.trim().isEmpty ? 'Please enter your name' : null,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _regEmailController,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Email Address',
-              prefixIcon: Icon(Icons.email_outlined),
-              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-            ),
-            validator: (value) => value == null || value.trim().isEmpty ? 'Please enter email' : null,
-          ),
-          const SizedBox(height: 16),
           TextFormField(
             controller: _regMobileController,
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
               labelText: 'Mobile Number',
               prefixIcon: Icon(Icons.phone_outlined),
+              hintText: 'e.g. 9664588677',
               border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
             ),
-            validator: (value) => value == null || value.trim().isEmpty ? 'Please enter mobile number' : null,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _regPasswordController,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Password',
-              prefixIcon: Icon(Icons.lock_outline),
-              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-            ),
-            validator: (value) => value == null || value.isEmpty || value.length < 6 ? 'Password must be at least 6 characters' : null,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _regConfirmPasswordController,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Confirm Password',
-              prefixIcon: Icon(Icons.lock_outline),
-              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Confirm your password';
-              if (value != _regPasswordController.text) return 'Passwords do not match';
-              return null;
-            },
+            validator: (value) => value == null || value.trim().length < 10 ? 'Please enter a valid 10-digit mobile number' : null,
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: _isLoading ? null : _handleSendRegOtp,
+            onPressed: _isLoading ? null : _handleStep1SendMobileOtp,
             style: ElevatedButton.styleFrom(
               backgroundColor: theme.colorScheme.primary,
               foregroundColor: Colors.white,
@@ -724,7 +742,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     children: [
                       Icon(Icons.chat_outlined, size: 20),
                       SizedBox(width: 8),
-                      Text('Get WhatsApp OTP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('Send WhatsApp OTP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
           ),
@@ -747,20 +765,21 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  // REGISTER VERIFY FORM (Enter WhatsApp OTP)
-  Widget _buildRegVerifyForm(ThemeData theme, bool isDark) {
+  // STEP 2: VERIFY OTP FORM
+  Widget _buildRegOtpForm(ThemeData theme, bool isDark) {
     return Form(
-      key: _regVerifyFormKey,
+      key: _regOtpFormKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _buildStepIndicator(2, 'Enter OTP', theme, isDark),
           const Text(
             'Verify WhatsApp OTP',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           Text(
-            'Enter the 6-digit WhatsApp OTP sent to ${_regMobileController.text}',
+            'Enter 6-digit code sent to ${_regMobileController.text}',
             style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
           ),
           const SizedBox(height: 20),
@@ -779,7 +798,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: _isLoading ? null : _handleVerifyRegOtpAndRegister,
+            onPressed: _isLoading ? null : _handleStep2VerifyOtp,
             style: ElevatedButton.styleFrom(
               backgroundColor: theme.colorScheme.primary,
               foregroundColor: Colors.white,
@@ -792,22 +811,165 @@ class _AuthScreenState extends State<AuthScreen> {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
                   )
-                : const Text('Verify & Register', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                : const Text('Verify OTP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
           const SizedBox(height: 16),
           TextButton(
-            onPressed: _isLoading ? null : _handleSendRegOtp,
+            onPressed: _isLoading ? null : _handleStep1SendMobileOtp,
             child: const Text('Resend WhatsApp OTP'),
           ),
           TextButton.icon(
-            onPressed: () => setState(() => _state = AuthState.register),
+            onPressed: () => setState(() => _state = AuthState.regMobile),
             icon: const Icon(Icons.arrow_back),
-            label: const Text('Edit Registration Details'),
+            label: const Text('Change Mobile Number'),
           ),
         ],
       ),
     );
   }
+
+  // STEP 3: PROFILE INFO FORM (Name & Email)
+  Widget _buildRegProfileForm(ThemeData theme, bool isDark) {
+    return Form(
+      key: _regProfileFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildStepIndicator(3, 'Personal Info', theme, isDark),
+          const Text(
+            'Personal Details',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Tell us your name and email address',
+            style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
+          ),
+          const SizedBox(height: 20),
+          TextFormField(
+            controller: _regNameController,
+            decoration: const InputDecoration(
+              labelText: 'Full Name',
+              prefixIcon: Icon(Icons.person_outline),
+              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+            ),
+            validator: (value) => value == null || value.trim().isEmpty ? 'Please enter your full name' : null,
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _regEmailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'Email Address',
+              prefixIcon: Icon(Icons.email_outlined),
+              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+            ),
+            validator: (value) => value == null || value.trim().isEmpty ? 'Please enter your email' : null,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _handleStep3Profile,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Next: Set Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                SizedBox(width: 8),
+                Icon(Icons.arrow_forward, size: 20),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextButton.icon(
+            onPressed: () => setState(() => _state = AuthState.regOtp),
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Back to OTP'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // STEP 4: SET PASSWORD FORM
+  Widget _buildRegPasswordForm(ThemeData theme, bool isDark) {
+    return Form(
+      key: _regPasswordFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildStepIndicator(4, 'Set Password', theme, isDark),
+          const Text(
+            'Create Password',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Set a secure password for your account',
+            style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
+          ),
+          const SizedBox(height: 20),
+          TextFormField(
+            controller: _regPasswordController,
+            obscureText: _obscurePassword,
+            decoration: InputDecoration(
+              labelText: 'Password',
+              prefixIcon: const Icon(Icons.lock_outline),
+              border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+              suffixIcon: IconButton(
+                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              ),
+            ),
+            validator: (value) => value == null || value.isEmpty || value.length < 6 ? 'Password must be at least 6 characters' : null,
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _regConfirmPasswordController,
+            obscureText: _obscurePassword,
+            decoration: const InputDecoration(
+              labelText: 'Confirm Password',
+              prefixIcon: Icon(Icons.lock_outline),
+              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) return 'Confirm your password';
+              if (value != _regPasswordController.text) return 'Passwords do not match';
+              return null;
+            },
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _isLoading ? null : _handleStep4CompleteRegistration,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
+                  )
+                : const Text('Complete Registration', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+          const SizedBox(height: 16),
+          TextButton.icon(
+            onPressed: () => setState(() => _state = AuthState.regProfile),
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Back to Personal Info'),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   // FORGOT REQUEST FORM (Enter Email or Mobile)
   Widget _buildForgotRequestForm(ThemeData theme, bool isDark) {
