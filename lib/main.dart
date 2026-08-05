@@ -303,15 +303,11 @@ class _AuthScreenState extends State<AuthScreen> {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        final otpCode = data['otp'] ?? '';
-        if (otpCode.isNotEmpty) {
-          _regOtpController.text = otpCode;
-          _showSuccess('WhatsApp OTP Sent! Code "$otpCode" generated for testing.');
-        } else {
-          _showSuccess('WhatsApp OTP sent to ${_regMobileController.text.trim()}.');
-        }
+        _regOtpController.clear();
+        _showSuccess('WhatsApp OTP sent to ${_regMobileController.text.trim()}.');
         setState(() => _state = AuthState.regVerify);
       } else {
+
         _showError(data['message'] ?? 'Failed to send WhatsApp OTP.');
       }
     } catch (e) {
@@ -400,15 +396,11 @@ class _AuthScreenState extends State<AuthScreen> {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        final otpCode = data['otp'] ?? '';
-        if (otpCode.isNotEmpty) {
-          _otpController.text = otpCode;
-          _showSuccess('OTP Sent! Code "$otpCode" generated for testing.');
-        } else {
-          _showSuccess(isEmail ? 'OTP sent to your email.' : 'OTP sent to your WhatsApp.');
-        }
+        _otpController.clear();
+        _showSuccess(isEmail ? 'OTP sent to your email.' : 'OTP sent to your WhatsApp.');
         setState(() => _state = AuthState.forgotVerify);
       } else {
+
         _showError(data['message'] ?? 'Failed to send OTP.');
       }
     } catch (e) {
