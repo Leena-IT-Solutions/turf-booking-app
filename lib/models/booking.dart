@@ -57,6 +57,16 @@ class Booking {
   final String bookingDate;
   final String? dateRaw;
   final String? dateOfBooking;
+  final String? bookingNumber;
+  final double taxableAmount;
+  final double turfGstRate;
+  final String? turfGstType;
+  final double turfGstAmount;
+  final double platformFee;
+  final double platformFeeGst;
+  final String? customerGstin;
+  final String? customerCompanyName;
+  final String? refundMethod;
   final double amount;
   final double datePaidAmount;
   final double dateBalanceAmount;
@@ -76,17 +86,26 @@ class Booking {
   const Booking({
     required this.id,
     required this.bookingId,
+    this.bookingNumber,
     this.turfId,
     required this.turfName,
     this.customerName,
     this.customerMobile,
     this.customerEmail,
+    this.customerGstin,
+    this.customerCompanyName,
     required this.status,
     required this.datePaymentStatus,
     required this.bookingType,
     required this.bookingDate,
     this.dateRaw,
     this.dateOfBooking,
+    this.taxableAmount = 0.0,
+    this.turfGstRate = 0.0,
+    this.turfGstType,
+    this.turfGstAmount = 0.0,
+    this.platformFee = 0.0,
+    this.platformFeeGst = 0.0,
     this.amount = 0.0,
     this.datePaidAmount = 0.0,
     this.dateBalanceAmount = 0.0,
@@ -100,6 +119,7 @@ class Booking {
     this.cancellationFeeApplied = 0.0,
     this.refundAmount = 0.0,
     this.refundStatus,
+    this.refundMethod,
     this.refundedAt,
     this.shareMessageTemplate,
   });
@@ -118,17 +138,26 @@ class Booking {
     return Booking(
       id: json['id'] as int,
       bookingId: json['booking_id'] as int,
+      bookingNumber: json['booking_number']?.toString(),
       turfId: json['turf_id']?.toString(),
       turfName: json['turf_name'] ?? 'Unknown Turf',
       customerName: json['customer_name'],
       customerMobile: json['customer_mobile'],
       customerEmail: json['customer_email'],
+      customerGstin: json['customer_gstin']?.toString(),
+      customerCompanyName: json['customer_company_name']?.toString(),
       status: json['status'] ?? 'Pending',
       datePaymentStatus: json['date_payment_status'] ?? 'Unpaid',
       bookingType: json['booking_type'] ?? 'day',
       bookingDate: json['booking_date'] ?? '',
       dateRaw: json['date_raw'],
       dateOfBooking: json['date_of_booking'],
+      taxableAmount: _toDouble(json['taxable_amount']),
+      turfGstRate: _toDouble(json['turf_gst_rate']),
+      turfGstType: json['turf_gst_type']?.toString(),
+      turfGstAmount: _toDouble(json['turf_gst_amount']),
+      platformFee: _toDouble(json['platform_fee']),
+      platformFeeGst: _toDouble(json['platform_fee_gst']),
       amount: _toDouble(json['amount']),
       datePaidAmount: _toDouble(json['date_paid_amount']),
       dateBalanceAmount: _toDouble(json['date_balance_amount']),
@@ -146,6 +175,7 @@ class Booking {
       cancellationFeeApplied: _toDouble(json['cancellation_fee_applied']),
       refundAmount: _toDouble(json['refund_amount']),
       refundStatus: json['refund_status'],
+      refundMethod: json['refund_method'],
       refundedAt: json['refunded_at'],
       shareMessageTemplate: json['share_message_template'],
     );

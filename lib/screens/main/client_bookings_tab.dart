@@ -416,14 +416,30 @@ class ClientBookingsTab extends StatelessWidget {
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Expanded(
-                                          child: Text(
-                                            bDate.turfName,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                              color: isPast ? Colors.grey[600] : null,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                bDate.turfName,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                  color: isPast ? Colors.grey[600] : null,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                bDate.bookingNumber != null && bDate.bookingNumber!.isNotEmpty
+                                                    ? bDate.bookingNumber!
+                                                    : 'Booking #${bDate.bookingId}',
+                                                style: TextStyle(
+                                                  color: isPast ? Colors.grey[500] : Colors.grey[600],
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                         const SizedBox(width: 6),

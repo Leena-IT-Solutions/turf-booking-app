@@ -1955,12 +1955,36 @@ class _MainScreenState extends State<MainScreen> {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    'Booking Reference #${bookingDate.bookingId}',
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 13,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        bookingDate.bookingNumber != null && bookingDate.bookingNumber!.isNotEmpty
+                            ? bookingDate.bookingNumber!
+                            : 'Booking Reference #${bookingDate.bookingId}',
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      InkWell(
+                        onTap: () {
+                          final bNum = bookingDate.bookingNumber ?? '#${bookingDate.bookingId}';
+                          Clipboard.setData(ClipboardData(text: bNum));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Copied $bNum to clipboard'),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.all(2.0),
+                          child: Icon(Icons.copy, size: 14, color: Colors.grey),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   const Divider(),
@@ -2025,6 +2049,15 @@ class _MainScreenState extends State<MainScreen> {
                       bookingDate.refundStatus ?? 'None',
                       valueColor: (bookingDate.refundStatus == 'Refunded') ? Colors.green : Colors.grey,
                     ),
+                    if (bookingDate.refundMethod != null && bookingDate.refundMethod != 'None') ...[
+                      const SizedBox(height: 12),
+                      _buildDetailRow(
+                        Icons.account_balance_wallet_outlined,
+                        'Refund Method',
+                        bookingDate.refundMethod == 'razorpay' ? 'Razorpay Online' : 'Cash / Offline Refund',
+                        valueColor: bookingDate.refundMethod == 'razorpay' ? Colors.blue : Colors.orange,
+                      ),
+                    ],
                     if (bookingDate.refundedAt != null) ...[
                       const SizedBox(height: 12),
                       _buildDetailRow(
@@ -2109,6 +2142,14 @@ class _MainScreenState extends State<MainScreen> {
                   _buildDetailRow(Icons.phone_android, 'Mobile', bookingDate.customerMobile ?? 'N/A'),
                   const SizedBox(height: 12),
                   _buildDetailRow(Icons.mail_outline, 'Email', bookingDate.customerEmail ?? 'N/A'),
+                  if (bookingDate.customerGstin != null && bookingDate.customerGstin!.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _buildDetailRow(Icons.receipt_long, 'B2B GSTIN', bookingDate.customerGstin!),
+                    if (bookingDate.customerCompanyName != null && bookingDate.customerCompanyName!.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _buildDetailRow(Icons.business, 'Company Name', bookingDate.customerCompanyName!),
+                    ],
+                  ],
                   const SizedBox(height: 24),
                   const Divider(),
                   const SizedBox(height: 16),
@@ -2209,6 +2250,58 @@ class _MainScreenState extends State<MainScreen> {
                   ],
                   const Divider(),
                   const SizedBox(height: 16),
+                  if (bookingDate.turfGstAmount > 0 || bookingDate.platformFee > 0) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Base Slot Price',
+                          style: TextStyle(fontSize: 13, color: Colors.grey),
+                        ),
+                        Text(
+                          '₹${(bookingDate.taxableAmount > 0 ? bookingDate.taxableAmount : (bookingDate.amount - bookingDate.turfGstAmount - bookingDate.platformFee - bookingDate.platformFeeGst)).toStringAsFixed(0)}',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                    if (bookingDate.turfGstAmount > 0) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            bookingDate.turfGstType == 'included'
+                                ? 'Turf GST (${bookingDate.turfGstRate.toStringAsFixed(0)}% incl.)'
+                                : 'Turf GST (${bookingDate.turfGstRate.toStringAsFixed(0)}%)',
+                            style: const TextStyle(fontSize: 13, color: Colors.grey),
+                          ),
+                          Text(
+                            bookingDate.turfGstType == 'included'
+                                ? '₹${bookingDate.turfGstAmount.toStringAsFixed(0)}'
+                                : '+₹${bookingDate.turfGstAmount.toStringAsFixed(0)}',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (bookingDate.platformFee > 0) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Convenience Fee (incl. GST)',
+                            style: TextStyle(fontSize: 13, color: Colors.grey),
+                          ),
+                          Text(
+                            '+₹${(bookingDate.platformFee + bookingDate.platformFeeGst).toStringAsFixed(0)}',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                  ],
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -2300,9 +2393,31 @@ class _MainScreenState extends State<MainScreen> {
                             context: context,
                             builder: (BuildContext dialogContext) {
                               final String dateName = bookingDate.bookingDate;
+                              final double fee = bookingDate.cancellationFee;
+                              final double estRefund = (bookingDate.datePaidAmount > fee) ? (bookingDate.datePaidAmount - fee) : 0.0;
                               return AlertDialog(
                                 title: const Text('Cancel Booking'),
-                                content: Text('Do you want to cancel only $dateName or all dates of this booking?'),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Do you want to cancel only $dateName or all dates of this booking?'),
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.withValues(alpha: 0.08),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
+                                      ),
+                                      child: Text(
+                                        'Cancellation Fee: ₹${fee.toStringAsFixed(0)} • Est. Refund: ₹${estRefund.toStringAsFixed(0)}',
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red[800]),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(dialogContext),

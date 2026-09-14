@@ -202,11 +202,27 @@ class BookingsTab extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
-                              child: Text(
-                                b.turfName,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    b.turfName,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    b.bookingNumber != null && b.bookingNumber!.isNotEmpty
+                                        ? b.bookingNumber!
+                                        : 'Booking #${b.bookingId}',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             Container(

@@ -71,6 +71,11 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   bool _hasSearchedCustomers = false;
   Timer? _debounceTimer;
 
+  // B2B Corporate Invoicing (Optional)
+  bool _wantsTaxInvoice = false;
+  final TextEditingController _gstinController = TextEditingController();
+  final TextEditingController _companyNameController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -130,6 +135,8 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     _amountReceivedController.dispose();
     _additionalDiscountController.dispose();
     _topCouponController.dispose();
+    _gstinController.dispose();
+    _companyNameController.dispose();
     for (final controller in _couponControllers.values) {
       controller.dispose();
     }
@@ -182,6 +189,8 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
           'booking_type': widget.bookingType.name,
           'coupons': _dateCoupons,
           if (_bookOnBehalf && _additionalDiscount > 0) 'additional_discount': _additionalDiscount,
+          'payment_method': _paymentMethod == 'offline' ? 'offline' : 'razorpay',
+          'payment_option': (_paymentMethod == 'razorpay_part') ? 'part' : 'full',
         }),
       );
 
@@ -482,6 +491,45 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     return _bookOnBehalf ? _additionalDiscount : 0.0;
   }
 
+  double get _turfGstAmount {
+    if (_previewData != null && _previewData!['turf_gst_amount'] != null) {
+      return (_previewData!['turf_gst_amount'] as num).toDouble();
+    }
+    return 0.0;
+  }
+
+  double get _turfGstRate {
+    if (_previewData != null && _previewData!['turf_gst_rate'] != null) {
+      return (_previewData!['turf_gst_rate'] as num).toDouble();
+    }
+    return 0.0;
+  }
+
+  String get _turfGstType {
+    if (_previewData != null && _previewData!['turf_gst_type'] != null) {
+      return _previewData!['turf_gst_type'].toString();
+    }
+    return 'exempt';
+  }
+
+  double get _platformFee {
+    if (_previewData != null && _previewData!['platform_fee'] != null) {
+      return (_previewData!['platform_fee'] as num).toDouble();
+    }
+    return 0.0;
+  }
+
+  double get _platformFeeGst {
+    if (_previewData != null && _previewData!['platform_fee_gst'] != null) {
+      return (_previewData!['platform_fee_gst'] as num).toDouble();
+    }
+    return 0.0;
+  }
+
+  bool get _isCancellationActive => _previewData != null && (_previewData!['is_cancellation_active'] == true || _previewData!['is_cancellation_active'] == 1);
+  int get _cancellationHours => _previewData != null && _previewData!['cancellation_hours'] != null ? (_previewData!['cancellation_hours'] as num).toInt() : 0;
+  double get _cancellationTurfFee => _previewData != null && _previewData!['cancellation_turf_fee'] != null ? (_previewData!['cancellation_turf_fee'] as num).toDouble() : 0.0;
+  double get _estimatedRefundAmount => _previewData != null && _previewData!['estimated_refund_amount'] != null ? (_previewData!['estimated_refund_amount'] as num).toDouble() : 0.0;
 
   double get _totalToPay {
     if (_previewData != null) {
@@ -600,6 +648,13 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       requestBody['payment_method'] = (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part') ? 'App' : 'offline';
       requestBody['payment_option'] = _paymentMethod == 'razorpay_part' ? 'part' : 'full';
       requestBody['razorpay_payment_id'] = paymentId;
+    }
+
+    if (_wantsTaxInvoice && _gstinController.text.trim().isNotEmpty) {
+      requestBody['customer_gstin'] = _gstinController.text.trim().toUpperCase();
+      if (_companyNameController.text.trim().isNotEmpty) {
+        requestBody['customer_company_name'] = _companyNameController.text.trim();
+      }
     }
 
     try {
@@ -1221,7 +1276,10 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                 groupValue: _paymentMethod,
                                 // ignore: deprecated_member_use
                                 onChanged: (val) {
-                                  if (val != null) setState(() => _paymentMethod = val);
+                                  if (val != null) {
+                                    setState(() => _paymentMethod = val);
+                                    _fetchPreview(showFullLoader: false);
+                                  }
                                 },
                                 activeColor: theme.colorScheme.primary,
                                 contentPadding: EdgeInsets.zero,
@@ -1236,7 +1294,10 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                 groupValue: _paymentMethod,
                                 // ignore: deprecated_member_use
                                 onChanged: (val) {
-                                  if (val != null) setState(() => _paymentMethod = val);
+                                  if (val != null) {
+                                    setState(() => _paymentMethod = val);
+                                    _fetchPreview(showFullLoader: false);
+                                  }
                                 },
                                 activeColor: theme.colorScheme.primary,
                                 contentPadding: EdgeInsets.zero,
@@ -1251,7 +1312,10 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                 groupValue: _paymentMethod,
                                 // ignore: deprecated_member_use
                                 onChanged: (val) {
-                                  if (val != null) setState(() => _paymentMethod = val);
+                                  if (val != null) {
+                                    setState(() => _paymentMethod = val);
+                                    _fetchPreview(showFullLoader: false);
+                                  }
                                 },
                                 activeColor: theme.colorScheme.primary,
                                 contentPadding: EdgeInsets.zero,
@@ -1266,7 +1330,10 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                 groupValue: _paymentMethod,
                                 // ignore: deprecated_member_use
                                 onChanged: (val) {
-                                  if (val != null) setState(() => _paymentMethod = val);
+                                  if (val != null) {
+                                    setState(() => _paymentMethod = val);
+                                    _fetchPreview(showFullLoader: false);
+                                  }
                                 },
                                 activeColor: theme.colorScheme.primary,
                                 contentPadding: EdgeInsets.zero,
@@ -1277,6 +1344,73 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                     ),
                     const SizedBox(height: 16),
                   ],
+
+                  // Optional B2B GSTIN Card
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.receipt_long, size: 20, color: theme.colorScheme.primary),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Add GSTIN for Business Invoicing',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: theme.textTheme.bodyLarge?.color,
+                                  ),
+                                ),
+                              ),
+                              Switch.adaptive(
+                                value: _wantsTaxInvoice,
+                                activeTrackColor: theme.colorScheme.primary,
+                                onChanged: (val) {
+                                  setState(() => _wantsTaxInvoice = val);
+                                },
+                              ),
+                            ],
+                          ),
+                          if (_wantsTaxInvoice) ...[
+                            const Divider(height: 16),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: _gstinController,
+                              textCapitalization: TextCapitalization.characters,
+                              maxLength: 15,
+                              decoration: InputDecoration(
+                                labelText: 'GSTIN (15 Digits)',
+                                hintText: 'e.g. 27AAAAA0000A1Z5',
+                                counterText: '',
+                                prefixIcon: const Icon(Icons.badge_outlined, size: 18),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                isDense: true,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _companyNameController,
+                              textCapitalization: TextCapitalization.words,
+                              decoration: InputDecoration(
+                                labelText: 'Company / Firm Name',
+                                hintText: 'e.g. Acme Sports Club Pvt Ltd',
+                                prefixIcon: const Icon(Icons.business_outlined, size: 18),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                isDense: true,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
                   // Pricing details card
                   Card(
@@ -1289,7 +1423,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Subtotal', style: TextStyle(color: Colors.grey)),
+                              const Text('Slot Subtotal', style: TextStyle(color: Colors.grey)),
                               Text('₹${_subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w500)),
                             ],
                           ),
@@ -1310,6 +1444,48 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                               children: [
                                 const Text('Additional Discount', style: TextStyle(color: Colors.teal)),
                                 Text('-₹${_additionalDiscountVal.toStringAsFixed(2)}', style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ],
+                          if (_turfGstAmount > 0) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _turfGstType == 'included'
+                                      ? 'Turf GST (${_turfGstRate.toStringAsFixed(0)}% incl.)'
+                                      : 'Turf GST (${_turfGstRate.toStringAsFixed(0)}%)',
+                                  style: TextStyle(
+                                    color: _turfGstType == 'included' ? Colors.grey : theme.textTheme.bodyMedium?.color,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  _turfGstType == 'included'
+                                      ? '₹${_turfGstAmount.toStringAsFixed(2)}'
+                                      : '+₹${_turfGstAmount.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    color: _turfGstType == 'included' ? Colors.grey : null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (_platformFee > 0) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Convenience Fee (incl. GST)',
+                                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                                ),
+                                Text(
+                                  '+₹${(_platformFee + _platformFeeGst).toStringAsFixed(2)}',
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                ),
                               ],
                             ),
                           ],
@@ -1360,6 +1536,62 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                           ],
                         ],
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Upfront Cancellation Policy Banner
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _isCancellationActive
+                          ? Colors.teal.withValues(alpha: 0.08)
+                          : Colors.grey.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _isCancellationActive
+                            ? Colors.teal.withValues(alpha: 0.25)
+                            : Colors.grey.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          _isCancellationActive ? Icons.shield_outlined : Icons.info_outline,
+                          size: 18,
+                          color: _isCancellationActive ? Colors.teal : Colors.grey,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _isCancellationActive
+                                    ? 'Cancellation Policy (Up to $_cancellationHours hrs prior)'
+                                    : 'Cancellation Policy',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: _isCancellationActive ? Colors.teal : Colors.grey[800],
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _isCancellationActive
+                                    ? 'Turf fee: ₹${_cancellationTurfFee.toStringAsFixed(0)} • Estimated Refund: ₹${_estimatedRefundAmount.toStringAsFixed(0)}'
+                                    : 'Venue cancellation is non-refundable once confirmed.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 24),
