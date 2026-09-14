@@ -189,7 +189,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
           'booking_type': widget.bookingType.name,
           'coupons': _dateCoupons,
           if (_bookOnBehalf && _additionalDiscount > 0) 'additional_discount': _additionalDiscount,
-          'payment_method': _paymentMethod == 'offline' ? 'offline' : 'razorpay',
+          'payment_method': (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part') ? 'App' : 'offline',
           'payment_option': (_paymentMethod == 'razorpay_part') ? 'part' : 'full',
         }),
       );
@@ -237,9 +237,8 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
 
     setState(() {
       for (final date in widget.dates) {
-        if (!_dateCoupons.containsKey(date) || _dateCoupons[date] == null || _dateCoupons[date]!.isEmpty) {
-          _dateCoupons[date] = code;
-        }
+        _dateCoupons[date] = code;
+        _couponErrors[date] = null;
       }
     });
 
@@ -249,6 +248,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       final List datesList = _previewData!['dates'] ?? [];
       int successCount = 0;
       int failCount = 0;
+      String? firstErrorMessage;
 
       setState(() {
         for (final dateData in datesList) {
@@ -259,30 +259,38 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
               _dateCoupons[dateStr] = coupon['code'];
               successCount++;
             } else {
-              if (_dateCoupons[dateStr] == code) {
-                _dateCoupons.remove(dateStr);
-                _couponErrors[dateStr] = coupon['error'];
-                failCount++;
-              }
+              _dateCoupons.remove(dateStr);
+              _couponErrors[dateStr] = coupon['error'];
+              firstErrorMessage ??= coupon['error']?.toString();
+              failCount++;
             }
           }
         }
       });
 
       if (!mounted) return;
-      _topCouponController.clear();
 
       if (successCount > 0) {
+        _topCouponController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Coupon applied successfully to $successCount date(s)!'),
+            content: Text('Coupon "$code" applied successfully!'),
             backgroundColor: Colors.green,
           ),
         );
       } else if (failCount > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(firstErrorMessage ?? 'Failed to apply coupon "$code".'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Failed to apply coupon to selected date(s).'),
+            content: Text('Could not reach server to apply coupon. Please try again.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1073,6 +1081,37 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                               ),
                             ],
                           ),
+                          if (_couponDiscount > 0) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Coupon applied! You saved ₹${_couponDiscount.toStringAsFixed(2)}',
+                                      style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                  ),
+                                  InkWell(
+                                    onTap: () {
+                                      for (final d in widget.dates) {
+                                        _removeCouponForDate(d);
+                                      }
+                                    },
+                                    child: const Text('Remove', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1089,8 +1128,12 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                     final String dateStr = dateData['date'] ?? '';
                     final String dayLabel = dateData['day_name'] ?? '';
                     final List slotsList = dateData['slots'] ?? [];
-                    final dateDiscount = (dateData['discount'] as num).toDouble();
-                    final dateNet = (dateData['net_amount'] as num).toDouble();
+                    final dateDiscount = (dateData['discount'] ?? dateData['coupon_discount'] ?? 0.0) is num
+                        ? (dateData['discount'] ?? dateData['coupon_discount'] ?? 0.0).toDouble()
+                        : double.tryParse((dateData['discount'] ?? dateData['coupon_discount'] ?? '0').toString()) ?? 0.0;
+                    final dateNet = (dateData['net_amount'] ?? dateData['turf_total'] ?? dateData['subtotal'] ?? 0.0) is num
+                        ? (dateData['net_amount'] ?? dateData['turf_total'] ?? dateData['subtotal'] ?? 0.0).toDouble()
+                        : double.tryParse((dateData['net_amount'] ?? dateData['turf_total'] ?? '0').toString()) ?? 0.0;
 
                     final couponApplied = dateData['coupon'] != null && dateData['coupon']['applied'] == true;
                     final couponError = dateData['coupon'] != null ? dateData['coupon']['error'] as String? : null;
