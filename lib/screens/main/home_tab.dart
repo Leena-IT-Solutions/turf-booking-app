@@ -161,8 +161,10 @@ class HomeTab extends StatelessWidget {
 
   Widget _buildTurfCard(BuildContext context, Turf turf) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final name = turf.name;
-    final location = '${turf.locationName}, ${turf.locationAddress}';
+    final locationName = turf.locationName.isNotEmpty ? turf.locationName : turf.name;
+    final locationAddress = turf.locationAddress;
     final price = turf.priceText;
     final rating = turf.rating;
     final hasRating = turf.hasRating;
@@ -177,36 +179,39 @@ class HomeTab extends StatelessWidget {
       distanceText = '${dist.toStringAsFixed(1)} km';
     }
 
+    final hasDistinctTurfName = turf.locationName.isNotEmpty &&
+        turf.locationName.trim().toLowerCase() != turf.name.trim().toLowerCase();
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => onOpenTurfDetail(turf),
         child: SizedBox(
-          height: 104,
+          height: 122,
           child: Row(
             children: [
               SizedBox(
-                width: 104,
-                height: 104,
+                width: 122,
+                height: 122,
                 child: imageUrl != null && imageUrl.isNotEmpty
                     ? Image.network(
                         imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => Container(
                           color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                          child: Icon(imageIcon, size: 32, color: theme.colorScheme.primary),
+                          child: Icon(imageIcon, size: 36, color: theme.colorScheme.primary),
                         ),
                       )
                     : Container(
                         color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                        child: Icon(imageIcon, size: 32, color: theme.colorScheme.primary),
+                        child: Icon(imageIcon, size: 36, color: theme.colorScheme.primary),
                       ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 10.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -214,20 +219,36 @@ class HomeTab extends StatelessWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // 1. Location name (Big)
                           Text(
-                            name,
+                            locationName,
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
+                          // 2. Turf name (on separate line)
+                          if (hasDistinctTurfName) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              name,
+                              style: TextStyle(
+                                color: isDark ? Colors.grey[300] : const Color(0xFF334155),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                          const SizedBox(height: 3),
+                          // 3. Address (on separate line)
                           Row(
                             children: [
                               const Icon(Icons.location_on, size: 14, color: Colors.grey),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
-                                  location,
+                                  locationAddress.isNotEmpty ? locationAddress : locationName,
                                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -256,12 +277,13 @@ class HomeTab extends StatelessWidget {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: theme.colorScheme.primary,
+                              fontSize: 14,
                             ),
                           ),
                           if (hasRating)
                             Row(
                               children: [
-                                const Icon(Icons.star, color: Colors.amber, size: 16),
+                                const Icon(Icons.star, color: Colors.amber, size: 15),
                                 const SizedBox(width: 4),
                                 Text(
                                   rating,

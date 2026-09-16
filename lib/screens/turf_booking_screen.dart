@@ -1053,14 +1053,28 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              name,
+                              locationName.isNotEmpty ? locationName : name,
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              locationName,
-                              style: const TextStyle(color: Colors.grey, fontSize: 13),
-                            ),
+                            if (locationName.isNotEmpty &&
+                                locationName.trim().toLowerCase() != name.trim().toLowerCase()) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                name,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                            if (widget.turf.locationAddress.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                widget.turf.locationAddress,
+                                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                              ),
+                            ],
                             const SizedBox(height: 8),
                             Text(
                               price,
