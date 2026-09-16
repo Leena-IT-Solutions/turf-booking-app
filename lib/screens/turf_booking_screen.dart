@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
 import '../core/api_client.dart';
 import '../core/booking_type.dart';
@@ -47,7 +46,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
 
   Future<void> _fetchConfig() async {
     try {
-      final response = await http.get(Uri.parse('${ApiClient.baseUrl}/config'));
+      final response = await ApiClient.get(Uri.parse('${ApiClient.baseUrl}/config'));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (mounted) {
@@ -99,7 +98,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
         final queryParams = dates.map((d) => 'dates[]=$d').join('&');
         url = '${ApiClient.baseUrl}/turfs/$turfId/slots?$queryParams';
       }
-      final response = await http.get(Uri.parse(url));
+      final response = await ApiClient.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);

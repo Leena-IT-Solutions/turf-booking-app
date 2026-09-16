@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -137,7 +136,7 @@ class _MainScreenState extends State<MainScreen> {
 
     try {
       final pageToFetch = refresh ? 1 : (loadMore ? _bookingsPage + 1 : 1);
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('${ApiClient.baseUrl}/bookings?page=$pageToFetch&filter=$_bookingsFilter&personal=1'),
         headers: ApiClient.authHeaders(widget.token),
       );
@@ -186,7 +185,7 @@ class _MainScreenState extends State<MainScreen> {
       final dateStr = "${_clientBookingSelectedDate.year}-${_clientBookingSelectedDate.month.toString().padLeft(2, '0')}-${_clientBookingSelectedDate.day.toString().padLeft(2, '0')}";
       final turfParam = _clientBookingSelectedTurfId != null ? '&turf_id=$_clientBookingSelectedTurfId' : '';
       final filterParam = '&filter=$_clientBookingFilter';
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('${ApiClient.baseUrl}/bookings?date=$dateStr$filterParam$turfParam'),
         headers: ApiClient.authHeaders(widget.token),
       );
@@ -242,7 +241,7 @@ class _MainScreenState extends State<MainScreen> {
         bodyMap['booking_date_ids'] = bookingDateIds;
       }
 
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('${ApiClient.baseUrl}/bookings/$bookingId/cancel'),
         headers: ApiClient.authHeaders(widget.token),
         body: jsonEncode(bodyMap),
@@ -281,7 +280,7 @@ class _MainScreenState extends State<MainScreen> {
 
     try {
       final queryParam = _dashboardSelectedTurfId != null ? '?turf_id=$_dashboardSelectedTurfId' : '';
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('${ApiClient.baseUrl}/dashboard/stats$queryParam'),
         headers: ApiClient.authHeaders(widget.token),
       );
@@ -351,7 +350,7 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _fetchSliderImages() async {
     if (mounted) setState(() => _sliderLoading = true);
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('${ApiClient.baseUrl}/slider-images'),
         headers: {
           'Content-Type': 'application/json',
@@ -378,7 +377,7 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _fetchTurfs() async {
     if (mounted) setState(() => _turfsLoading = true);
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('${ApiClient.baseUrl}/turfs'),
         headers: {
           'Content-Type': 'application/json',
@@ -438,7 +437,7 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _fetchAppConfig() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('${ApiClient.baseUrl}/config'),
         headers: {
           'Content-Type': 'application/json',
@@ -1069,7 +1068,7 @@ class _MainScreenState extends State<MainScreen> {
     setState(() => _profileLoading = true);
 
     try {
-      final response = await http.put(
+      final response = await ApiClient.put(
         Uri.parse('${ApiClient.baseUrl}/user/profile'),
         headers: ApiClient.authHeaders(widget.token),
         body: jsonEncode({
@@ -1098,7 +1097,7 @@ class _MainScreenState extends State<MainScreen> {
     setState(() => _profileLoading = true);
 
     try {
-      final response = await http.put(
+      final response = await ApiClient.put(
         Uri.parse('${ApiClient.baseUrl}/user/password'),
         headers: ApiClient.authHeaders(widget.token),
         body: jsonEncode({
@@ -1126,7 +1125,7 @@ class _MainScreenState extends State<MainScreen> {
     setState(() => _profileLoading = true);
 
     try {
-      final response = await http.delete(
+      final response = await ApiClient.delete(
         Uri.parse('${ApiClient.baseUrl}/user'),
         headers: ApiClient.authHeaders(widget.token),
       );
@@ -1444,7 +1443,7 @@ class _MainScreenState extends State<MainScreen> {
       setState(() => _supportLoading = true);
     }
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('${ApiClient.baseUrl}/support/messages'),
         headers: ApiClient.authHeaders(widget.token),
       );
@@ -1471,7 +1470,7 @@ class _MainScreenState extends State<MainScreen> {
     _supportMessageController.clear();
     _supportFocusNode.requestFocus();
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('${ApiClient.baseUrl}/support/messages'),
         headers: ApiClient.authHeaders(widget.token),
         body: jsonEncode({'message': text}),
@@ -2573,7 +2572,7 @@ class _MainScreenState extends State<MainScreen> {
                     }
 
                     try {
-                      final response = await http.post(
+                      final response = await ApiClient.post(
                         Uri.parse('${ApiClient.baseUrl}/booking-dates/$id/payments'),
                         headers: ApiClient.authHeaders(widget.token),
                         body: jsonEncode({

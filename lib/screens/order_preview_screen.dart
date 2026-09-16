@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -145,7 +144,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
 
   Future<void> _fetchConfig() async {
     try {
-      final response = await http.get(Uri.parse('${ApiClient.baseUrl}/config'));
+      final response = await ApiClient.get(Uri.parse('${ApiClient.baseUrl}/config'));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
@@ -180,7 +179,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     }
 
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('${ApiClient.baseUrl}/turfs/${widget.turf.id}/bookings/preview'),
         headers: ApiClient.authHeaders(widget.token),
         body: jsonEncode({
@@ -307,7 +306,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     });
 
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('${ApiClient.baseUrl}/users/search?query=${Uri.encodeComponent(query)}'),
         headers: ApiClient.authHeaders(widget.token),
       );
@@ -336,7 +335,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
 
   Future<void> _quickCreateCustomer(String name, String email, String mobile) async {
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('${ApiClient.baseUrl}/users/quick-create'),
         headers: ApiClient.authHeaders(widget.token),
         body: jsonEncode({
@@ -666,7 +665,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     }
 
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('${ApiClient.baseUrl}/turfs/$turfId/bookings'),
         headers: ApiClient.authHeaders(widget.token),
         body: jsonEncode(requestBody),

@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api_client.dart';
@@ -40,7 +39,7 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
   Future<void> _fetchCoupons() async {
     final turfId = widget.turf.id;
     try {
-      final response = await http.get(Uri.parse('${ApiClient.baseUrl}/turfs/$turfId/coupons'));
+      final response = await ApiClient.get(Uri.parse('${ApiClient.baseUrl}/turfs/$turfId/coupons'));
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         if (mounted) {
@@ -69,7 +68,7 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
   Future<void> _fetchReviews() async {
     final turfId = widget.turf.id;
     try {
-      final response = await http.get(Uri.parse('${ApiClient.baseUrl}/turfs/$turfId/reviews'));
+      final response = await ApiClient.get(Uri.parse('${ApiClient.baseUrl}/turfs/$turfId/reviews'));
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         double totalRating = 0;
@@ -111,7 +110,7 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
     }
 
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('${ApiClient.baseUrl}/turfs/$turfId/reviews'),
         headers: ApiClient.authHeaders(widget.token),
         body: jsonEncode({

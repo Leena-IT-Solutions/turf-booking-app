@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api_client.dart';
@@ -25,18 +24,74 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    ApiClient.onUnauthorized = _handleUnauthorized;
     _checkLoginStatus();
+  }
+
+  void _handleUnauthorized() {
+    _onLogout(isUnauthorized: true);
   }
 
   Future<void> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _token = prefs.getString('access_token');
-      _userName = prefs.getString('user_name');
-      _userEmail = prefs.getString('user_email');
-      _userMobile = prefs.getString('user_mobile');
-      _isLoading = false;
-    });
+    final token = prefs.getString('access_token');
+
+    if (token == null || token.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _token = null;
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    // Validate stored token against the backend
+    try {
+      final response = await ApiClient.get(
+        Uri.parse('${ApiClient.baseUrl}/user'),
+        headers: ApiClient.authHeaders(token),
+      );
+
+      if (response.statusCode == 401) {
+        // Token is invalid/expired (e.g. fresh database reset)
+        await prefs.clear();
+        if (mounted) {
+          setState(() {
+            _token = null;
+            _userName = null;
+            _userEmail = null;
+            _userMobile = null;
+            _isLoading = false;
+          });
+        }
+        return;
+      } else if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final user = data is Map<String, dynamic> ? data : null;
+        if (user != null) {
+          if (user['name'] != null) await prefs.setString('user_name', user['name']);
+          if (user['email'] != null) await prefs.setString('user_email', user['email']);
+          if (user['mobile'] != null) await prefs.setString('user_mobile', user['mobile']);
+          if (user['roles'] != null) {
+            final roles = List<String>.from((user['roles'] as List).map((r) => r is Map ? (r['name'] ?? '') : r.toString()));
+            await prefs.setStringList('user_roles', roles);
+          }
+        }
+      }
+    } catch (_) {
+      // Network/offline error: proceed with cached credentials
+    }
+
+    if (mounted) {
+      setState(() {
+        _token = prefs.getString('access_token');
+        _userName = prefs.getString('user_name');
+        _userEmail = prefs.getString('user_email');
+        _userMobile = prefs.getString('user_mobile');
+        _isLoading = false;
+      });
+    }
   }
 
   void _onLoginSuccess(String token, Map<String, dynamic> user) async {
@@ -63,7 +118,7 @@ class _MyAppState extends State<MyApp> {
   Future<void> _registerDeviceToken(String token) async {
     try {
       final deviceToken = 'fcm_device_token_${DateTime.now().millisecondsSinceEpoch}';
-      await http.post(
+      await ApiClient.post(
         Uri.parse('${ApiClient.baseUrl}/user/device-token'),
         headers: ApiClient.authHeaders(token),
         body: jsonEncode({
@@ -74,16 +129,46 @@ class _MyAppState extends State<MyApp> {
     } catch (_) {}
   }
 
-  void _onLogout() async {
+  void _onLogout({bool isUnauthorized = false}) async {
+    if (_token == null && !_isLoading) return;
+
     final prefs = await SharedPreferences.getInstance();
+    final token = _token ?? prefs.getString('access_token');
+
+    if (!isUnauthorized && token != null && token.isNotEmpty) {
+      try {
+        ApiClient.post(
+          Uri.parse('${ApiClient.baseUrl}/logout'),
+          headers: ApiClient.authHeaders(token),
+        );
+      } catch (_) {}
+    }
+
     await prefs.clear();
 
-    setState(() {
-      _token = null;
-      _userName = null;
-      _userEmail = null;
-      _userMobile = null;
-    });
+    ApiClient.navigatorKey.currentState?.popUntil((route) => route.isFirst);
+
+    if (mounted) {
+      setState(() {
+        _token = null;
+        _userName = null;
+        _userEmail = null;
+        _userMobile = null;
+      });
+
+      if (isUnauthorized) {
+        final ctx = ApiClient.navigatorKey.currentContext;
+        if (ctx != null && ctx.mounted) {
+          ScaffoldMessenger.of(ctx).showSnackBar(
+            const SnackBar(
+              content: Text('Session expired or unauthorized. Please log in again.'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
   }
 
   void _onProfileUpdated(String name, String email, String mobile) async {
@@ -115,6 +200,7 @@ class _MyAppState extends State<MyApp> {
     }
 
     return MaterialApp(
+      navigatorKey: ApiClient.navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Turf Booking',
       themeMode: ThemeMode.system,
@@ -162,7 +248,7 @@ class _MyAppState extends State<MyApp> {
               userEmail: _userEmail ?? '',
               userMobile: _userMobile ?? '',
               token: _token!,
-              onLogout: _onLogout,
+              onLogout: () => _onLogout(isUnauthorized: false),
               onProfileUpdated: _onProfileUpdated,
             )
           : AuthScreen(onLoginSuccess: _onLoginSuccess),
