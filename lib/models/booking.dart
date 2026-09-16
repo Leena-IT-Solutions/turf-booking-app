@@ -159,8 +159,12 @@ class Booking {
       platformFee: _toDouble(json['platform_fee']),
       platformFeeGst: _toDouble(json['platform_fee_gst']),
       amount: _toDouble(json['amount']),
-      datePaidAmount: _toDouble(json['date_paid_amount']),
-      dateBalanceAmount: _toDouble(json['date_balance_amount']),
+      datePaidAmount: (json['date_payment_status'] == 'Paid' || json['payment_status'] == 'Paid') && _toDouble(json['date_paid_amount']) < _toDouble(json['amount'])
+          ? _toDouble(json['amount'])
+          : _toDouble(json['date_paid_amount']),
+      dateBalanceAmount: (json['date_payment_status'] == 'Paid' || json['payment_status'] == 'Paid')
+          ? 0.0
+          : _toDouble(json['date_balance_amount']),
       summaryText: json['summary_text'],
       slots: json['slots'] != null
           ? List<dynamic>.from(json['slots']).map((s) => BookedSlot.fromJson(s as Map<String, dynamic>)).toList()
