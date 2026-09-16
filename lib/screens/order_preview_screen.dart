@@ -1521,7 +1521,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text(
-                                  'Convenience Fee (incl. GST)',
+                                  'Platform Fee (incl. GST)',
                                   style: TextStyle(color: Colors.grey, fontSize: 13),
                                 ),
                                 Text(

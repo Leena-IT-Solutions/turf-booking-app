@@ -2289,7 +2289,7 @@ class _MainScreenState extends State<MainScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
-                            'Convenience Fee (incl. GST)',
+                            'Platform Fee (incl. GST)',
                             style: TextStyle(fontSize: 13, color: Colors.grey),
                           ),
                           Text(
