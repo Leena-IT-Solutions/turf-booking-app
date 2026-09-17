@@ -58,6 +58,9 @@ class Booking {
   final String? dateRaw;
   final String? dateOfBooking;
   final String? bookingNumber;
+  final double actualAmount;
+  final double couponDiscount;
+  final double additionalDiscount;
   final double taxableAmount;
   final double turfGstRate;
   final String? turfGstType;
@@ -100,6 +103,9 @@ class Booking {
     required this.bookingDate,
     this.dateRaw,
     this.dateOfBooking,
+    this.actualAmount = 0.0,
+    this.couponDiscount = 0.0,
+    this.additionalDiscount = 0.0,
     this.taxableAmount = 0.0,
     this.turfGstRate = 0.0,
     this.turfGstType,
@@ -152,6 +158,9 @@ class Booking {
       bookingDate: json['booking_date'] ?? '',
       dateRaw: json['date_raw'],
       dateOfBooking: json['date_of_booking'],
+      actualAmount: _toDouble(json['actual_amount'] ?? json['booking_actual_amount']),
+      couponDiscount: _toDouble(json['coupon_discount']),
+      additionalDiscount: _toDouble(json['additional_discount']),
       taxableAmount: _toDouble(json['taxable_amount']),
       turfGstRate: _toDouble(json['turf_gst_rate']),
       turfGstType: json['turf_gst_type']?.toString(),
