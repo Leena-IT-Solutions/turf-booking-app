@@ -565,7 +565,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   }
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) {
-    _completeBooking(response.paymentId);
+    _completeBooking(response.paymentId, response.orderId, response.signature);
   }
 
   void _handlePaymentError(PaymentFailureResponse response) {
@@ -596,12 +596,39 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     });
 
     if (!_bookOnBehalf && (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part')) {
-      final keyToUse = _razorpayKey ?? 'rzp_test_5yX1f8e1F8e1F8';
+      String? razorpayOrderId;
+      String keyToUse = _razorpayKey ?? 'rzp_test_5yX1f8e1F8e1F8';
+
+      // Pre-create Razorpay Order via backend
+      try {
+        final orderRes = await ApiClient.post(
+          Uri.parse('${ApiClient.baseUrl}/turfs/${widget.turf.id}/bookings/order'),
+          headers: ApiClient.authHeaders(widget.token),
+          body: jsonEncode({
+            'amount': _payableNowAmount,
+            'currency': 'INR',
+          }),
+        );
+        if (orderRes.statusCode == 200) {
+          final orderData = jsonDecode(orderRes.body);
+          if (orderData['order_id'] != null) {
+            razorpayOrderId = orderData['order_id'].toString();
+          }
+          if (orderData['key'] != null && orderData['key'].toString().isNotEmpty) {
+            keyToUse = orderData['key'].toString();
+          }
+        }
+      } catch (e) {
+        debugPrint('Could not create Razorpay order: $e');
+      }
+
       final options = {
         'key': keyToUse,
         'amount': (_payableNowAmount * 100).toInt(),
         'name': widget.turf.name.isNotEmpty ? widget.turf.name : 'Turf Booking',
         'description': 'Booking for ${widget.turf.name}',
+        if (razorpayOrderId != null && razorpayOrderId.isNotEmpty)
+          'order_id': razorpayOrderId,
         'prefill': {
           'contact': _userMobile.isNotEmpty ? _userMobile : '9999999999',
           'email': _userEmail.isNotEmpty ? _userEmail : 'user@example.com',
@@ -625,7 +652,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
     }
   }
 
-  Future<void> _completeBooking(String? paymentId) async {
+  Future<void> _completeBooking(String? paymentId, [String? orderId, String? signature]) async {
     final turfId = widget.turf.id;
     final navigator = Navigator.of(context);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -655,6 +682,12 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       requestBody['payment_method'] = (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part') ? 'App' : 'offline';
       requestBody['payment_option'] = _paymentMethod == 'razorpay_part' ? 'part' : 'full';
       requestBody['razorpay_payment_id'] = paymentId;
+      if (orderId != null && orderId.isNotEmpty) {
+        requestBody['razorpay_order_id'] = orderId;
+      }
+      if (signature != null && signature.isNotEmpty) {
+        requestBody['razorpay_signature'] = signature;
+      }
     }
 
     if (_wantsTaxInvoice && _gstinController.text.trim().isNotEmpty) {
