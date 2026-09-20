@@ -642,10 +642,12 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       try {
         _razorpay.open(options);
       } catch (e) {
-        setState(() => _submittingBooking = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open payment gateway: $e')),
-        );
+        if (mounted) {
+          setState(() => _submittingBooking = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not open payment gateway: $e')),
+          );
+        }
       }
     } else {
       _completeBooking(null);

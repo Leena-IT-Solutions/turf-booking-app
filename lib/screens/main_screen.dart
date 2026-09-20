@@ -198,9 +198,11 @@ class _MainScreenState extends State<MainScreen> {
               .toList();
 
           if (_clientBookingFilter == 'upcoming') {
-            list = list.where((b) => !b.isPast()).toList();
+            list = list.where((b) => !b.isPast() && !b.isCancelled).toList();
           } else if (_clientBookingFilter == 'past') {
-            list = list.where((b) => b.isPast()).toList();
+            list = list.where((b) => b.isPast() && !b.isCancelled).toList();
+          } else if (_clientBookingFilter == 'cancelled') {
+            list = list.where((b) => b.isCancelled).toList();
           }
 
           list.sort((a, b) {

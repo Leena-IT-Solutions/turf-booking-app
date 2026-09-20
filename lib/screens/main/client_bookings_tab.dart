@@ -178,7 +178,7 @@ class ClientBookingsTab extends StatelessWidget {
                         'All',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                          fontSize: 12.5,
                           color: clientBookingFilter == 'all'
                               ? Colors.white
                               : theme.textTheme.bodyMedium?.color,
@@ -217,7 +217,7 @@ class ClientBookingsTab extends StatelessWidget {
                         'Upcoming',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                          fontSize: 12.5,
                           color: clientBookingFilter == 'upcoming'
                               ? Colors.white
                               : theme.textTheme.bodyMedium?.color,
@@ -256,8 +256,47 @@ class ClientBookingsTab extends StatelessWidget {
                         'Past',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                          fontSize: 12.5,
                           color: clientBookingFilter == 'past'
+                              ? Colors.white
+                              : theme.textTheme.bodyMedium?.color,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      if (clientBookingFilter != 'cancelled') {
+                        onStatusFilterChanged('cancelled');
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: clientBookingFilter == 'cancelled'
+                            ? theme.colorScheme.primary
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: clientBookingFilter == 'cancelled'
+                            ? [
+                                BoxShadow(
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : [],
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Cancelled',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                          color: clientBookingFilter == 'cancelled'
                               ? Colors.white
                               : theme.textTheme.bodyMedium?.color,
                         ),

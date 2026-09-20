@@ -69,7 +69,7 @@ class BookingsTab extends StatelessWidget {
                               ? Colors.grey[400]
                               : Colors.grey[700]),
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: 13.5,
                     ),
                   ),
                 ),
@@ -99,7 +99,37 @@ class BookingsTab extends StatelessWidget {
                               ? Colors.grey[400]
                               : Colors.grey[700]),
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (bookingsFilter != 'cancelled') {
+                    onFilterChanged('cancelled');
+                  }
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: bookingsFilter == 'cancelled'
+                        ? theme.colorScheme.primary
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Cancelled',
+                    style: TextStyle(
+                      color: bookingsFilter == 'cancelled'
+                          ? Colors.white
+                          : (theme.brightness == Brightness.dark
+                              ? Colors.grey[400]
+                              : Colors.grey[700]),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
                     ),
                   ),
                 ),
@@ -118,6 +148,24 @@ class BookingsTab extends StatelessWidget {
         ),
       );
     } else if (bookings.isEmpty) {
+      String emptyTitle = 'No Bookings Found';
+      String emptySubtitle = '';
+      IconData emptyIcon = Icons.calendar_month;
+
+      if (bookingsFilter == 'upcoming') {
+        emptyTitle = 'No Upcoming Bookings';
+        emptySubtitle = 'You don\'t have any future turf bookings. Book a slot to get started!';
+        emptyIcon = Icons.calendar_today_outlined;
+      } else if (bookingsFilter == 'past') {
+        emptyTitle = 'No Past Bookings';
+        emptySubtitle = 'Your past bookings history is empty.';
+        emptyIcon = Icons.history;
+      } else if (bookingsFilter == 'cancelled') {
+        emptyTitle = 'No Cancelled Bookings';
+        emptySubtitle = 'You don\'t have any cancelled bookings.';
+        emptyIcon = Icons.cancel_outlined;
+      }
+
       body = Expanded(
         child: RefreshIndicator(
           onRefresh: onRefresh,
@@ -129,22 +177,20 @@ class BookingsTab extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.calendar_month,
+                    emptyIcon,
                     size: 64,
                     color: Colors.grey.withValues(alpha: 0.4),
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    bookingsFilter == 'upcoming' ? 'No Upcoming Bookings' : 'No Past Bookings',
+                    emptyTitle,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    bookingsFilter == 'upcoming'
-                        ? 'You don\'t have any future turf bookings. Book a slot to get started!'
-                        : 'Your past bookings history is empty.',
+                    emptySubtitle,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: Colors.grey[600],
