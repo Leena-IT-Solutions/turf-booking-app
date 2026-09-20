@@ -168,8 +168,12 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
     final isOnlinePayment = widget.turf.isOnlinePaymentActive;
     final isPartPayment = widget.turf.isPartPaymentActive;
     final isPayAtLocation = widget.turf.isPayAtLocationActive == true;
+    final isCancellationActive = widget.turf.isCancellationActive;
     final cancellationHours = widget.turf.cancellationHours;
     final cancellationFee = widget.turf.cancellationFee;
+    final bookingOpenDays = widget.turf.bookingOpenDays;
+    final partPaymentType = widget.turf.partPaymentType;
+    final partPaymentValue = widget.turf.partPaymentValue;
 
     return Scaffold(
       body: CustomScrollView(
@@ -681,59 +685,180 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                     const SizedBox(height: 24),
                   ],
 
-                  // Payment & Policies Card
+                  // Payment & Policies Section
                   Text(
                     'Rules & Booking Policies',
                     style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 10),
-                  Card(
-                    elevation: 0,
-                    color: isDark ? const Color(0xFF1E2022) : Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[300]!, width: 1.2),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          // Cancellation Policy
-                          Row(
-                            children: [
-                              Icon(Icons.info_outline, color: theme.colorScheme.primary, size: 20),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  cancellationHours > 0 
-                                      ? 'Free cancellation up to $cancellationHours hours before the slot. Fee: ₹$cancellationFee.'
-                                      : 'No cancellations allowed after booking.',
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 24),
-                          // Payment Modes
-                          Row(
-                            children: [
-                              Icon(Icons.payment, color: theme.colorScheme.primary, size: 20),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Payment Modes: ${[
-                                    if (isOnlinePayment) 'Online Payment',
-                                    if (isPartPayment) 'Part Payment',
-                                    if (isPayAtLocation) 'Pay at Location',
-                                  ].join(', ')}',
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                  const SizedBox(height: 12),
+
+                  // Card 1: Cancellation & Refund Policy
+                  _buildPolicyCard(
+                    context: context,
+                    isDark: isDark,
+                    icon: Icons.event_busy_outlined,
+                    iconColor: isCancellationActive ? const Color(0xFF10B981) : Colors.red,
+                    title: 'Cancellation & Refund Policy',
+                    badge: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: (isCancellationActive ? const Color(0xFF10B981) : Colors.red).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        isCancellationActive ? 'Cancellation Allowed' : 'Non-Refundable',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isCancellationActive ? const Color(0xFF10B981) : Colors.red,
+                        ),
                       ),
                     ),
+                    items: [
+                      if (isCancellationActive) ...[
+                        _buildPolicyBullet(
+                          title: 'Allowed Window',
+                          description: 'Cancellation is allowed up to $cancellationHours hours prior to the session start time.',
+                          isDark: isDark,
+                        ),
+                        _buildPolicyBullet(
+                          title: 'Venue Cancellation Fee',
+                          description: cancellationFee > 0
+                              ? '₹${cancellationFee.toStringAsFixed(2)} per slot will be deducted upon cancellation.'
+                              : 'Free cancellation (₹0.00 venue deduction).',
+                          isDark: isDark,
+                        ),
+                        _buildPolicyBullet(
+                          title: 'Platform Convenience Fee',
+                          description: 'Platform convenience fee (+GST) is strictly non-refundable once booking is confirmed.',
+                          isDark: isDark,
+                        ),
+                        _buildPolicyBullet(
+                          title: 'Refund Timeline',
+                          description: 'Online refunds are automatically credited back to your original payment source (UPI/Card/Bank) within 5–7 business days.',
+                          isDark: isDark,
+                        ),
+                        _buildPolicyBullet(
+                          title: 'Cut-off Rule',
+                          description: 'Cancellations requested within $cancellationHours hours of the slot time are locked and 100% non-refundable.',
+                          isDark: isDark,
+                          highlightColor: Colors.orange,
+                          bulletIcon: Icons.warning_amber_rounded,
+                        ),
+                      ] else ...[
+                        _buildPolicyBullet(
+                          title: 'Non-Cancellable',
+                          description: 'Bookings for this venue are strictly non-cancellable and non-refundable once confirmed.',
+                          isDark: isDark,
+                        ),
+                        _buildPolicyBullet(
+                          title: 'Slot Lock',
+                          description: 'In case of player no-show or change of schedule, 100% of the booking amount is forfeited.',
+                          isDark: isDark,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Card 2: Payment Options & Terms
+                  _buildPolicyCard(
+                    context: context,
+                    isDark: isDark,
+                    icon: Icons.payments_outlined,
+                    iconColor: const Color(0xFF3B82F6),
+                    title: 'Payment Options & Terms',
+                    badge: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${[
+                          if (isOnlinePayment) 'Online',
+                          if (isPartPayment) 'Part Pay',
+                          if (isPayAtLocation) 'Pay at Turf',
+                        ].length} Modes Available',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF3B82F6),
+                        ),
+                      ),
+                    ),
+                    items: [
+                      if (isOnlinePayment)
+                        _buildPolicyBullet(
+                          title: 'Online Full Payment',
+                          description: '100% secure advance booking via UPI, Credit/Debit Cards, Net Banking & Wallets powered by Razorpay.',
+                          isDark: isDark,
+                          bulletIcon: Icons.credit_card,
+                        ),
+                      if (isPartPayment)
+                        _buildPolicyBullet(
+                          title: 'Part Payment (Advance Deposit)',
+                          description: (partPaymentType == 'percentage')
+                              ? 'Pay an advance deposit of ${(partPaymentValue ?? 20.0).toStringAsFixed(0)}% now to reserve the slot. The remaining balance is payable at the turf reception before playing.'
+                              : (partPaymentType == 'fixed')
+                                  ? 'Pay an advance token of ₹${(partPaymentValue ?? 100.0).toStringAsFixed(2)} now to reserve the slot. The remaining balance is payable at the turf reception before playing.'
+                                  : 'Pay a partial deposit now to lock the slot, and pay the remaining balance at the venue counter.',
+                          isDark: isDark,
+                          bulletIcon: Icons.pie_chart_outline,
+                        ),
+                      if (isPayAtLocation)
+                        _buildPolicyBullet(
+                          title: 'Pay at Location',
+                          description: 'Reserve your slot online and pay the full amount via Cash or UPI directly at the turf reception before your game begins.',
+                          isDark: isDark,
+                          bulletIcon: Icons.storefront_outlined,
+                        ),
+                      _buildPolicyBullet(
+                        title: 'Digital Invoices',
+                        description: 'Official GST invoice and booking confirmation slips are accessible anytime from your My Bookings tab.',
+                        isDark: isDark,
+                        bulletIcon: Icons.receipt_long_outlined,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Card 3: Booking Rules & Turf Etiquette
+                  _buildPolicyCard(
+                    context: context,
+                    isDark: isDark,
+                    icon: Icons.sports_soccer_outlined,
+                    iconColor: const Color(0xFF8B5CF6),
+                    title: 'Booking Rules & Turf Etiquette',
+                    items: [
+                      _buildPolicyBullet(
+                        title: 'Advance Booking',
+                        description: 'Slots can be booked up to $bookingOpenDays days in advance.',
+                        isDark: isDark,
+                      ),
+                      _buildPolicyBullet(
+                        title: 'Reporting Time',
+                        description: 'Players must report to the venue 10–15 minutes prior to the booked slot for gate entry and warm-up.',
+                        isDark: isDark,
+                      ),
+                      _buildPolicyBullet(
+                        title: 'Footwear Guidelines',
+                        description: 'Only flat turf shoes, sneakers, or soft rubber studs are permitted. Metal studs, spikes, and bare feet are strictly prohibited to preserve the turf grass.',
+                        isDark: isDark,
+                        highlightColor: Colors.amber.shade700,
+                        bulletIcon: Icons.warning_amber_rounded,
+                      ),
+                      _buildPolicyBullet(
+                        title: 'Slot Extensions',
+                        description: 'Playing beyond the booked duration is subject to subsequent slot availability and extra venue fees.',
+                        isDark: isDark,
+                      ),
+                      _buildPolicyBullet(
+                        title: 'Ground Etiquette',
+                        description: 'No food, smoking, chewing gum, or alcoholic beverages are permitted inside the turf playing arena.',
+                        isDark: isDark,
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
                   
@@ -1006,5 +1131,105 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
     } catch (e) {
       debugPrint('Could not launch maps: $e');
     }
+  }
+
+  Widget _buildPolicyCard({
+    required BuildContext context,
+    required bool isDark,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    Widget? badge,
+    required List<Widget> items,
+  }) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E2022) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              ?badge,
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...items,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPolicyBullet({
+    required String title,
+    required String description,
+    required bool isDark,
+    IconData? bulletIcon,
+    Color? highlightColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 4, right: 10),
+            child: Icon(
+              bulletIcon ?? Icons.circle,
+              size: bulletIcon != null ? 14 : 6,
+              color: highlightColor ?? (isDark ? Colors.grey[400] : Colors.grey[600]),
+            ),
+          ),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? Colors.grey[300] : Colors.grey[800],
+                  height: 1.35,
+                ),
+                children: [
+                  TextSpan(
+                    text: '$title: ',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  TextSpan(text: description),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

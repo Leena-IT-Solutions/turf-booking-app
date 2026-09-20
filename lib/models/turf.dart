@@ -24,8 +24,14 @@ class Turf {
   /// available-by-default, the other as unavailable) — preserved as-is
   /// rather than silently unified, each call site applies its own `??`.
   final bool? isPayAtLocationActive;
+  final bool isCancellationActive;
   final double cancellationFee;
+  final double cancellationFeePercentage;
   final int cancellationHours;
+  final bool isBookingOpen;
+  final int bookingOpenDays;
+  final String? partPaymentType;
+  final double? partPaymentValue;
   final List<dynamic> sports;
   final List<dynamic> facilities;
   final List<dynamic> equipments;
@@ -48,8 +54,14 @@ class Turf {
     this.isOnlinePaymentActive = false,
     this.isPartPaymentActive = false,
     this.isPayAtLocationActive,
+    this.isCancellationActive = false,
     this.cancellationFee = 0.0,
+    this.cancellationFeePercentage = 5.0,
     this.cancellationHours = 0,
+    this.isBookingOpen = true,
+    this.bookingOpenDays = 30,
+    this.partPaymentType,
+    this.partPaymentValue,
     this.sports = const [],
     this.facilities = const [],
     this.equipments = const [],
@@ -81,8 +93,14 @@ class Turf {
       isOnlinePaymentActive: json['is_online_payment_active'] ?? false,
       isPartPaymentActive: json['is_part_payment_active'] ?? false,
       isPayAtLocationActive: json['is_pay_at_location_active'],
+      isCancellationActive: json['is_cancellation_active'] == true || json['is_cancellation_active'] == 1,
       cancellationFee: (json['cancellation_fee'] ?? 0.0).toDouble(),
+      cancellationFeePercentage: (json['cancellation_fee_percentage'] ?? 5.0).toDouble(),
       cancellationHours: json['cancellation_hours'] ?? 0,
+      isBookingOpen: json['is_booking_open'] ?? true,
+      bookingOpenDays: json['booking_open_days'] ?? 30,
+      partPaymentType: json['part_payment_type']?.toString(),
+      partPaymentValue: parseNum(json['part_payment_value']),
       sports: json['sports'] != null ? List<dynamic>.from(json['sports']) : const [],
       facilities: json['facilities'] != null ? List<dynamic>.from(json['facilities']) : const [],
       equipments: json['equipments'] != null ? List<dynamic>.from(json['equipments']) : const [],
