@@ -199,6 +199,18 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
           setState(() {
             _previewData = data;
             _previewLoading = false;
+
+            final bool liveOnline = data['is_online_payment_active'] == true || data['is_online_payment_active'] == 1 || data['is_online_payment_active'] == '1';
+            final bool livePart = data['is_part_payment_active'] == true || data['is_part_payment_active'] == 1 || data['is_part_payment_active'] == '1';
+            final bool livePayAtLocation = data['is_pay_at_location_active'] == null ? true : (data['is_pay_at_location_active'] == true || data['is_pay_at_location_active'] == 1 || data['is_pay_at_location_active'] == '1');
+
+            if (_paymentMethod == 'razorpay_full' && !liveOnline) {
+              _paymentMethod = livePart ? 'razorpay_part' : (livePayAtLocation ? 'offline' : 'offline');
+            } else if (_paymentMethod == 'razorpay_part' && !livePart) {
+              _paymentMethod = liveOnline ? 'razorpay_full' : (livePayAtLocation ? 'offline' : 'offline');
+            } else if (_paymentMethod == 'offline' && !livePayAtLocation) {
+              _paymentMethod = liveOnline ? 'razorpay_full' : (livePart ? 'razorpay_part' : 'offline');
+            }
           });
         }
       } else {
@@ -761,9 +773,15 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final bool isPayAtLocation = widget.turf.isPayAtLocationActive ?? true;
-    final bool isOnlinePayment = widget.turf.isOnlinePaymentActive;
-    final bool isPartPayment = widget.turf.isPartPaymentActive;
+    final bool isPayAtLocation = (_previewData != null && _previewData!['is_pay_at_location_active'] != null)
+        ? (_previewData!['is_pay_at_location_active'] == true || _previewData!['is_pay_at_location_active'] == 1 || _previewData!['is_pay_at_location_active'] == '1')
+        : (widget.turf.isPayAtLocationActive ?? true);
+    final bool isOnlinePayment = (_previewData != null && _previewData!['is_online_payment_active'] != null)
+        ? (_previewData!['is_online_payment_active'] == true || _previewData!['is_online_payment_active'] == 1 || _previewData!['is_online_payment_active'] == '1')
+        : widget.turf.isOnlinePaymentActive;
+    final bool isPartPayment = (_previewData != null && _previewData!['is_part_payment_active'] != null)
+        ? (_previewData!['is_part_payment_active'] == true || _previewData!['is_part_payment_active'] == 1 || _previewData!['is_part_payment_active'] == '1')
+        : widget.turf.isPartPaymentActive;
 
     final String turfId = widget.turf.id.toString();
     final bool isManagerOrAdmin = _userRoles.any((r) => ['turf-admin', 'manager'].contains(r)) &&

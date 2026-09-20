@@ -21,6 +21,7 @@ class TurfDetailScreen extends StatefulWidget {
 }
 
 class _TurfDetailScreenState extends State<TurfDetailScreen> {
+  late Turf _turf = widget.turf;
   List<dynamic> _reviews = [];
   bool _reviewsLoading = true;
   String _avgRating = '0.0';
@@ -35,6 +36,23 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
     _reviewsCount = widget.turf.reviewsCount;
     _fetchReviews();
     _fetchCoupons();
+    _fetchTurfDetails();
+  }
+
+  Future<void> _fetchTurfDetails() async {
+    try {
+      final response = await ApiClient.get(Uri.parse('${ApiClient.baseUrl}/turfs/${widget.turf.id}'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            _turf = Turf.fromJson(data);
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching turf details: $e');
+    }
   }
 
   Future<void> _fetchCoupons() async {
@@ -149,31 +167,31 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final name = widget.turf.name;
-    final type = widget.turf.type;
-    final description = widget.turf.description ?? 'No description provided.';
-    final area = widget.turf.area ?? '';
-    final locationName = widget.turf.locationName;
-    final locationAddress = widget.turf.locationAddress;
-    final price = widget.turf.priceText;
+    final name = _turf.name;
+    final type = _turf.type;
+    final description = _turf.description ?? 'No description provided.';
+    final area = _turf.area ?? '';
+    final locationName = _turf.locationName;
+    final locationAddress = _turf.locationAddress;
+    final price = _turf.priceText;
     final rating = _avgRating;
     final hasRating = rating != '0.0' && rating != '0';
-    final sports = widget.turf.sports;
-    final facilities = widget.turf.facilities;
-    final equipments = widget.turf.equipments;
-    final imageUrls = widget.turf.imageUrls;
-    final latitude = widget.turf.latitude;
-    final longitude = widget.turf.longitude;
+    final sports = _turf.sports;
+    final facilities = _turf.facilities;
+    final equipments = _turf.equipments;
+    final imageUrls = _turf.imageUrls;
+    final latitude = _turf.latitude;
+    final longitude = _turf.longitude;
 
-    final isOnlinePayment = widget.turf.isOnlinePaymentActive;
-    final isPartPayment = widget.turf.isPartPaymentActive;
-    final isPayAtLocation = widget.turf.isPayAtLocationActive == true;
-    final isCancellationActive = widget.turf.isCancellationActive;
-    final cancellationHours = widget.turf.cancellationHours;
-    final cancellationFee = widget.turf.cancellationFee;
-    final bookingOpenDays = widget.turf.bookingOpenDays;
-    final partPaymentType = widget.turf.partPaymentType;
-    final partPaymentValue = widget.turf.partPaymentValue;
+    final isOnlinePayment = _turf.isOnlinePaymentActive;
+    final isPartPayment = _turf.isPartPaymentActive;
+    final isPayAtLocation = _turf.isPayAtLocationActive == true;
+    final isCancellationActive = _turf.isCancellationActive;
+    final cancellationHours = _turf.cancellationHours;
+    final cancellationFee = _turf.cancellationFee;
+    final bookingOpenDays = _turf.bookingOpenDays;
+    final partPaymentType = _turf.partPaymentType;
+    final partPaymentValue = _turf.partPaymentValue;
 
     return Scaffold(
       body: CustomScrollView(
@@ -1114,7 +1132,7 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                   final result = await navigator.push(
                     MaterialPageRoute(
                       builder: (context) => TurfBookingScreen(
-                        turf: widget.turf,
+                        turf: _turf,
                         token: widget.token,
                       ),
                     ),
