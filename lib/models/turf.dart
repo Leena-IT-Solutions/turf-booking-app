@@ -32,6 +32,8 @@ class Turf {
   final int bookingOpenDays;
   final String? partPaymentType;
   final double? partPaymentValue;
+  final String? contactNumber;
+  final String? whatsappNumber;
   final List<dynamic> sports;
   final List<dynamic> facilities;
   final List<dynamic> equipments;
@@ -62,12 +64,28 @@ class Turf {
     this.bookingOpenDays = 30,
     this.partPaymentType,
     this.partPaymentValue,
+    this.contactNumber,
+    this.whatsappNumber,
     this.sports = const [],
     this.facilities = const [],
     this.equipments = const [],
   });
 
   bool get hasRating => rating != '0.0' && rating != '0';
+
+  String get effectiveContactNumber {
+    if (contactNumber != null && contactNumber!.trim().isNotEmpty) {
+      return contactNumber!.trim();
+    }
+    return '9664588677';
+  }
+
+  String get effectiveWhatsappNumber {
+    if (whatsappNumber != null && whatsappNumber!.trim().isNotEmpty) {
+      return whatsappNumber!.trim();
+    }
+    return effectiveContactNumber;
+  }
 
   factory Turf.fromJson(Map<String, dynamic> json) {
     double? parseNum(dynamic v) {
@@ -101,6 +119,8 @@ class Turf {
       bookingOpenDays: json['booking_open_days'] ?? 30,
       partPaymentType: json['part_payment_type']?.toString(),
       partPaymentValue: parseNum(json['part_payment_value']),
+      contactNumber: json['contact_number']?.toString(),
+      whatsappNumber: json['whatsapp_number']?.toString() ?? json['contact_number']?.toString(),
       sports: json['sports'] != null ? List<dynamic>.from(json['sports']) : const [],
       facilities: json['facilities'] != null ? List<dynamic>.from(json['facilities']) : const [],
       equipments: json['equipments'] != null ? List<dynamic>.from(json['equipments']) : const [],

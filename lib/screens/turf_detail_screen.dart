@@ -300,7 +300,7 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Location Card
+                  // Location & Contact Card
                   Card(
                     elevation: 0,
                     color: isDark ? const Color(0xFF1E2022) : Colors.white,
@@ -310,39 +310,125 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                      child: Column(
                         children: [
-                          Icon(Icons.location_on, color: theme.colorScheme.primary, size: 24),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  locationName,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Icon(Icons.location_on, color: theme.colorScheme.primary, size: 24),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      locationName,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      locationAddress,
+                                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  locationAddress,
-                                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          IconButton(
-                            onPressed: () => _launchNavigation(latitude, longitude, locationAddress),
-                            icon: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                                shape: BoxShape.circle,
                               ),
-                              child: Icon(Icons.navigation_rounded, color: theme.colorScheme.primary, size: 20),
-                            ),
-                            tooltip: 'Navigate',
+                              const SizedBox(width: 12),
+                              IconButton(
+                                onPressed: () => _launchNavigation(latitude, longitude, locationAddress),
+                                icon: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.navigation_rounded, color: theme.colorScheme.primary, size: 20),
+                                ),
+                                tooltip: 'Navigate',
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey[200]),
+                          const SizedBox(height: 12),
+                          // Quick Contact Row (Call & WhatsApp)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () => _callTurf(widget.turf.effectiveContactNumber),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: theme.colorScheme.primary.withValues(alpha: 0.25),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.phone_in_talk_rounded, color: theme.colorScheme.primary, size: 18),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Call',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                              color: theme.colorScheme.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () => _messageWhatsApp(
+                                      widget.turf.effectiveWhatsappNumber,
+                                      locationName.isNotEmpty ? locationName : name,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF25D366).withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: const Color(0xFF25D366).withValues(alpha: 0.35),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.chat_bubble_rounded, color: Color(0xFF25D366), size: 18),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'WhatsApp',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                              color: Color(0xFF1EBE5D),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -1130,6 +1216,62 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
       }
     } catch (e) {
       debugPrint('Could not launch maps: $e');
+    }
+  }
+
+  Future<void> _callTurf(String rawPhone) async {
+    final cleanPhone = rawPhone.replaceAll(RegExp(r'\D'), '');
+    final callUri = Uri(scheme: 'tel', path: cleanPhone);
+    try {
+      if (await canLaunchUrl(callUri)) {
+        await launchUrl(callUri);
+      } else {
+        await Clipboard.setData(ClipboardData(text: cleanPhone));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.phone_in_talk, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Phone number $cleanPhone copied to clipboard.')),
+                ],
+              ),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Could not launch call: $e');
+    }
+  }
+
+  Future<void> _messageWhatsApp(String rawPhone, String turfName) async {
+    String formattedPhone = rawPhone.replaceAll(RegExp(r'\D'), '');
+    if (formattedPhone.length == 10) {
+      formattedPhone = "91$formattedPhone";
+    }
+    final message = "Hi, I am inquiring about $turfName via TurfBooking app.";
+    final uri = Uri.parse("https://wa.me/$formattedPhone?text=${Uri.encodeComponent(message)}");
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
+    } catch (e) {
+      debugPrint('Could not launch WhatsApp: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Could not open WhatsApp on this device.'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
     }
   }
 
