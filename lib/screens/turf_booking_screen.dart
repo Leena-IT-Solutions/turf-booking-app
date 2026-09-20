@@ -21,8 +21,13 @@ class TurfBookingScreen extends StatefulWidget {
 class _TurfBookingScreenState extends State<TurfBookingScreen> {
   BookingType _selectedType = BookingType.day;
 
+  DateTime _today() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
   // Day Booking State
-  DateTime _singleDate = DateTime.now();
+  late DateTime _singleDate;
 
   // Long Booking State (Date Range)
   DateTimeRange? _dateRange;
@@ -40,6 +45,7 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
   @override
   void initState() {
     super.initState();
+    _singleDate = _today();
     _fetchConfig();
     _fetchSlots();
   }
@@ -65,6 +71,11 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
     final List<String> dates = [];
     
     if (_selectedType == BookingType.day) {
+      final today = _today();
+      final current = DateTime(_singleDate.year, _singleDate.month, _singleDate.day);
+      if (current.isBefore(today)) {
+        _singleDate = today;
+      }
       dates.add("${_singleDate.year}-${_singleDate.month.toString().padLeft(2, '0')}-${_singleDate.day.toString().padLeft(2, '0')}");
     } else if (_selectedType == BookingType.long && _dateRange != null) {
       var current = _dateRange!.start;
@@ -237,32 +248,38 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                     icon: Icon(
                       Icons.arrow_back_ios_new,
                       color: _isPrevDateDisabled()
-                          ? Colors.grey.withValues(alpha: 0.4)
+                          ? Colors.grey.withValues(alpha: 0.3)
                           : theme.colorScheme.primary,
                       size: 20,
                     ),
                     onPressed: _isPrevDateDisabled()
                         ? null
                         : () {
-                            setState(() {
-                              _singleDate = _singleDate.subtract(const Duration(days: 1));
-                            });
-                            _fetchSlots();
+                            final prev = _singleDate.subtract(const Duration(days: 1));
+                            final prevDay = DateTime(prev.year, prev.month, prev.day);
+                            if (!prevDay.isBefore(_today())) {
+                              setState(() {
+                                _singleDate = prevDay;
+                              });
+                              _fetchSlots();
+                            }
                           },
                   ),
                   Expanded(
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
                       onTap: () async {
+                        final openDays = widget.turf.bookingOpenDays > 0 ? widget.turf.bookingOpenDays : 90;
+                        final today = _today();
                         final picked = await showDatePicker(
                           context: context,
-                          initialDate: _singleDate,
-                          firstDate: DateTime.now().subtract(const Duration(hours: 12)),
-                          lastDate: DateTime.now().add(const Duration(days: 90)),
+                          initialDate: _singleDate.isBefore(today) ? today : _singleDate,
+                          firstDate: today,
+                          lastDate: today.add(Duration(days: openDays)),
                         );
                         if (picked != null) {
                           setState(() {
-                            _singleDate = picked;
+                            _singleDate = DateTime(picked.year, picked.month, picked.day);
                           });
                           _fetchSlots();
                         }
@@ -298,17 +315,23 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                     icon: Icon(
                       Icons.arrow_forward_ios,
                       color: _isNextDateDisabled()
-                          ? Colors.grey.withValues(alpha: 0.4)
+                          ? Colors.grey.withValues(alpha: 0.3)
                           : theme.colorScheme.primary,
                       size: 20,
                     ),
                     onPressed: _isNextDateDisabled()
                         ? null
                         : () {
-                            setState(() {
-                              _singleDate = _singleDate.add(const Duration(days: 1));
-                            });
-                            _fetchSlots();
+                            final next = _singleDate.add(const Duration(days: 1));
+                            final nextDay = DateTime(next.year, next.month, next.day);
+                            final openDays = widget.turf.bookingOpenDays > 0 ? widget.turf.bookingOpenDays : 90;
+                            final limit = _today().add(Duration(days: openDays));
+                            if (!nextDay.isAfter(limit)) {
+                              setState(() {
+                                _singleDate = nextDay;
+                              });
+                              _fetchSlots();
+                            }
                           },
                   ),
                 ],
@@ -342,11 +365,13 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
                 subtitle: Text(_dateRange == null ? 'Tap to choose range' : 'Tap to change range'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                 onTap: () async {
+                  final openDays = widget.turf.bookingOpenDays > 0 ? widget.turf.bookingOpenDays : 90;
+                  final today = _today();
                   final picked = await showDateRangePicker(
                     context: context,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 90)),
-                    initialDateRange: _dateRange,
+                    firstDate: today,
+                    lastDate: today.add(Duration(days: openDays)),
+                    initialDateRange: (_dateRange != null && !_dateRange!.start.isBefore(today)) ? _dateRange : null,
                   );
                   if (picked != null) {
                     setState(() {
@@ -455,13 +480,14 @@ class _TurfBookingScreenState extends State<TurfBookingScreen> {
   }
 
   bool _isPrevDateDisabled() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    return !_singleDate.isAfter(today);
+    final today = _today();
+    final current = DateTime(_singleDate.year, _singleDate.month, _singleDate.day);
+    return !current.isAfter(today);
   }
 
   bool _isNextDateDisabled() {
-    final limit = DateTime.now().add(const Duration(days: 90));
+    final openDays = widget.turf.bookingOpenDays > 0 ? widget.turf.bookingOpenDays : 90;
+    final limit = _today().add(Duration(days: openDays));
     final nextDay = DateTime(_singleDate.year, _singleDate.month, _singleDate.day).add(const Duration(days: 1));
     return nextDay.isAfter(limit);
   }
