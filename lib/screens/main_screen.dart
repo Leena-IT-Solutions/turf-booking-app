@@ -137,7 +137,7 @@ class _MainScreenState extends State<MainScreen> {
     try {
       final pageToFetch = refresh ? 1 : (loadMore ? _bookingsPage + 1 : 1);
       final response = await ApiClient.get(
-        Uri.parse('${ApiClient.baseUrl}/bookings?page=$pageToFetch&filter=$_bookingsFilter&personal=1'),
+        Uri.parse('${ApiClient.baseUrl}/bookings?page=$pageToFetch&per_page=10&filter=$_bookingsFilter&personal=1'),
         headers: ApiClient.authHeaders(widget.token),
       );
       if (response.statusCode == 200) {
