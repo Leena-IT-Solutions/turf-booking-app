@@ -1250,10 +1250,9 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                 );
                               },
                             ),
-                            const Divider(height: 24),
-
                             // Date-wise Coupon status/display
                             if (couponApplied) ...[
+                              const Divider(height: 24),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -1283,6 +1282,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                 ],
                               ),
                             ] else if ((couponError ?? _couponErrors[dateStr]) != null) ...[
+                              const Divider(height: 24),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
