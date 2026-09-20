@@ -35,6 +35,36 @@ class BookingPayment {
   }
 }
 
+/// Itemized breakdown of cancellation deductions and resulting refund amount.
+class CancellationBreakup {
+  final double grossPaid;
+  final double turfCancellationFee;
+  final double platformFeeRetained;
+  final double saasCancellationFee;
+  final double totalDeductions;
+  final double refundAmount;
+
+  const CancellationBreakup({
+    this.grossPaid = 0.0,
+    this.turfCancellationFee = 0.0,
+    this.platformFeeRetained = 0.0,
+    this.saasCancellationFee = 0.0,
+    this.totalDeductions = 0.0,
+    this.refundAmount = 0.0,
+  });
+
+  factory CancellationBreakup.fromJson(Map<String, dynamic> json) {
+    return CancellationBreakup(
+      grossPaid: Booking._toDouble(json['gross_paid'] ?? json['gross']),
+      turfCancellationFee: Booking._toDouble(json['turf_cancellation_fee']),
+      platformFeeRetained: Booking._toDouble(json['platform_fee_retained']),
+      saasCancellationFee: Booking._toDouble(json['saas_cancellation_fee']),
+      totalDeductions: Booking._toDouble(json['total_deductions'] ?? json['total']),
+      refundAmount: Booking._toDouble(json['refund_amount'] ?? json['refund']),
+    );
+  }
+}
+
 /// A booking-date record — the shape returned by `/bookings` and used
 /// throughout the customer "My Bookings" tab, the turf-admin "Client
 /// Bookings" tab, and the shared booking-details bottom sheet. Note this
@@ -85,6 +115,9 @@ class Booking {
   final String? refundStatus;
   final String? refundedAt;
   final String? shareMessageTemplate;
+  final int activeDatesCount;
+  final CancellationBreakup? cancellationBreakup;
+  final CancellationBreakup? allDatesCancellationBreakup;
 
   const Booking({
     required this.id,
@@ -128,11 +161,29 @@ class Booking {
     this.refundMethod,
     this.refundedAt,
     this.shareMessageTemplate,
+    this.activeDatesCount = 1,
+    this.cancellationBreakup,
+    this.allDatesCancellationBreakup,
   });
 
   bool get isConfirmed => status == 'Confirmed';
   bool get isCancelled => status == 'Cancelled';
   bool get isPaid => datePaymentStatus == 'Paid';
+
+  CancellationBreakup get safeCancellationBreakup {
+    if (cancellationBreakup != null) return cancellationBreakup!;
+    final gross = datePaidAmount;
+    final fee = cancellationFeeApplied > 0 ? cancellationFeeApplied : cancellationFee;
+    final ref = refundAmount > 0 ? refundAmount : (gross > fee ? gross - fee : 0.0);
+    return CancellationBreakup(
+      grossPaid: gross,
+      turfCancellationFee: fee,
+      platformFeeRetained: 0.0,
+      saasCancellationFee: 0.0,
+      totalDeductions: fee,
+      refundAmount: ref,
+    );
+  }
 
   static double _toDouble(dynamic v) {
     if (v == null) return 0.0;
@@ -191,6 +242,13 @@ class Booking {
       refundMethod: json['refund_method'],
       refundedAt: json['refunded_at'],
       shareMessageTemplate: json['share_message_template'],
+      activeDatesCount: json['active_dates_count'] ?? 1,
+      cancellationBreakup: json['cancellation_breakup'] != null
+          ? CancellationBreakup.fromJson(json['cancellation_breakup'] as Map<String, dynamic>)
+          : null,
+      allDatesCancellationBreakup: json['all_dates_cancellation_breakup'] != null
+          ? CancellationBreakup.fromJson(json['all_dates_cancellation_breakup'] as Map<String, dynamic>)
+          : null,
     );
   }
 

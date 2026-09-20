@@ -2066,6 +2066,14 @@ class _MainScreenState extends State<MainScreen> {
                         valueColor: Colors.green,
                       ),
                     ],
+                    const SizedBox(height: 14),
+                    _buildRefundBreakupCard(
+                      bookingDate.safeCancellationBreakup,
+                      title: 'Refund & Deductions Summary',
+                      isSettled: true,
+                      refundStatus: bookingDate.refundStatus,
+                      refundMode: bookingDate.refundMethod,
+                    ),
                   ],
                   const SizedBox(height: 24),
                   const Divider(),
@@ -2392,61 +2400,150 @@ class _MainScreenState extends State<MainScreen> {
                             context: context,
                             builder: (BuildContext dialogContext) {
                               final String dateName = bookingDate.bookingDate;
-                              final double fee = bookingDate.cancellationFee;
-                              final double estRefund = (bookingDate.datePaidAmount > fee) ? (bookingDate.datePaidAmount - fee) : 0.0;
-                              return AlertDialog(
-                                title: const Text('Cancel Booking'),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Do you want to cancel only $dateName or all dates of this booking?'),
-                                    const SizedBox(height: 12),
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.withValues(alpha: 0.08),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
+                              final bool hasMultipleDates = bookingDate.activeDatesCount > 1;
+                              final CancellationBreakup singleBreakup = bookingDate.safeCancellationBreakup;
+                              final CancellationBreakup allBreakup = bookingDate.allDatesCancellationBreakup ?? singleBreakup;
+
+                              int selectedScope = 0; // 0 for dateName, 1 for all dates
+
+                              return StatefulBuilder(
+                                builder: (context, setDialogState) {
+                                  final currentBreakup = selectedScope == 0 ? singleBreakup : allBreakup;
+
+                                  return AlertDialog(
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                                    title: Row(
+                                      children: [
+                                        Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 22),
+                                        const SizedBox(width: 8),
+                                        const Text('Cancel Booking', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                    content: SingleChildScrollView(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            hasMultipleDates
+                                                ? 'Do you want to cancel only $dateName or all dates of this booking?'
+                                                : 'Are you sure you want to cancel your booking for $dateName?',
+                                            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                                          ),
+                                          if (hasMultipleDates) ...[
+                                            const SizedBox(height: 12),
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                color: Colors.grey.shade200,
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: GestureDetector(
+                                                      onTap: () => setDialogState(() => selectedScope = 0),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                                        decoration: BoxDecoration(
+                                                          color: selectedScope == 0 ? Colors.white : Colors.transparent,
+                                                          borderRadius: BorderRadius.circular(10),
+                                                          boxShadow: selectedScope == 0
+                                                              ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 4)]
+                                                              : null,
+                                                        ),
+                                                        alignment: Alignment.center,
+                                                        child: Text(
+                                                          'Only $dateName',
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: selectedScope == 0 ? FontWeight.bold : FontWeight.w500,
+                                                            color: selectedScope == 0 ? Colors.red.shade800 : Colors.grey.shade700,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: GestureDetector(
+                                                      onTap: () => setDialogState(() => selectedScope = 1),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                                        decoration: BoxDecoration(
+                                                          color: selectedScope == 1 ? Colors.white : Colors.transparent,
+                                                          borderRadius: BorderRadius.circular(10),
+                                                          boxShadow: selectedScope == 1
+                                                              ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 4)]
+                                                              : null,
+                                                        ),
+                                                        alignment: Alignment.center,
+                                                        child: Text(
+                                                          'All Dates (${bookingDate.activeDatesCount})',
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: selectedScope == 1 ? FontWeight.bold : FontWeight.w500,
+                                                            color: selectedScope == 1 ? Colors.red.shade800 : Colors.grey.shade700,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                          const SizedBox(height: 12),
+                                          _buildRefundBreakupCard(
+                                            currentBreakup,
+                                            title: 'Refund & Deductions Summary',
+                                            isSettled: false,
+                                          ),
+                                        ],
                                       ),
-                                      child: Text(
-                                        'Cancellation Fee: ₹${fee.toStringAsFixed(2)} • Est. Refund: ₹${estRefund.toStringAsFixed(2)}',
-                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red[800]),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(dialogContext),
+                                        child: const Text('Keep Booking'),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(dialogContext),
-                                    child: const Text('Keep Booking'),
-                                  ),
-                                  OutlinedButton(
-                                    onPressed: () {
-                                      Navigator.pop(dialogContext);
-                                      Navigator.pop(context);
-                                      _cancelBooking(bookingDate.bookingId, bookingDateIds: [bookingDate.id]);
-                                    },
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.red,
-                                      side: const BorderSide(color: Colors.red),
-                                    ),
-                                    child: Text('Cancel $dateName'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pop(dialogContext);
-                                      Navigator.pop(context);
-                                      _cancelBooking(bookingDate.bookingId);
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
-                                      foregroundColor: Colors.white,
-                                    ),
-                                    child: const Text('Cancel All Dates'),
-                                  ),
-                                ],
+                                      if (!hasMultipleDates)
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            Navigator.pop(dialogContext);
+                                            Navigator.pop(context);
+                                            _cancelBooking(bookingDate.bookingId, bookingDateIds: [bookingDate.id]);
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          child: const Text('Cancel Booking'),
+                                        )
+                                      else
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            Navigator.pop(dialogContext);
+                                            Navigator.pop(context);
+                                            if (selectedScope == 0) {
+                                              _cancelBooking(bookingDate.bookingId, bookingDateIds: [bookingDate.id]);
+                                            } else {
+                                              _cancelBooking(bookingDate.bookingId);
+                                            }
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          child: Text(selectedScope == 0 ? 'Cancel $dateName' : 'Cancel All Dates'),
+                                        ),
+                                    ],
+                                  );
+                                },
                               );
                             },
                           );
@@ -2633,6 +2730,184 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildRefundBreakupCard(
+    CancellationBreakup breakup, {
+    String? title,
+    bool isSettled = false,
+    String? refundStatus,
+    String? refundMode,
+  }) {
+    final bool hasDeductions = breakup.totalDeductions > 0;
+    final bool hasRefund = breakup.refundAmount > 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title != null) ...[
+            Row(
+              children: [
+                Icon(
+                  isSettled ? Icons.receipt_long : Icons.calculate_outlined,
+                  size: 16,
+                  color: Colors.grey.shade800,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+          _buildBreakupRow('Gross Amount Paid', '₹${breakup.grossPaid.toStringAsFixed(2)}', isBold: true),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: Divider(height: 1, color: Colors.black12),
+          ),
+          const Text(
+            'Deductions Applied:',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54),
+          ),
+          const SizedBox(height: 3),
+          if (breakup.turfCancellationFee > 0)
+            _buildBreakupSubRow('Turf Cancellation Fee', '-₹${breakup.turfCancellationFee.toStringAsFixed(2)}', color: Colors.red.shade700),
+          if (breakup.platformFeeRetained > 0)
+            _buildBreakupSubRow('Platform Fee (Non-refundable)', '-₹${breakup.platformFeeRetained.toStringAsFixed(2)}', color: Colors.red.shade700),
+          if (breakup.saasCancellationFee > 0)
+            _buildBreakupSubRow('SaaS Processing Fee', '-₹${breakup.saasCancellationFee.toStringAsFixed(2)}', color: Colors.red.shade700),
+          if (!hasDeductions)
+            _buildBreakupSubRow('No deductions applied', '₹0.00', color: Colors.green.shade700),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: Divider(height: 1, color: Colors.black12),
+          ),
+          _buildBreakupRow(
+            'Total Deductions',
+            hasDeductions ? '-₹${breakup.totalDeductions.toStringAsFixed(2)}' : '₹0.00',
+            color: hasDeductions ? Colors.red.shade800 : Colors.black87,
+            isBold: true,
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: hasRefund ? Colors.green.shade50 : Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: hasRefund ? Colors.green.shade200 : Colors.orange.shade200,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isSettled ? 'Refund Amount' : 'Estimated Refund',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: hasRefund ? Colors.green.shade900 : Colors.orange.shade900,
+                      ),
+                    ),
+                    if (isSettled && refundStatus != null)
+                      Text(
+                        'Status: $refundStatus',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: (refundStatus == 'Refunded') ? Colors.green.shade800 : Colors.orange.shade800,
+                        ),
+                      ),
+                  ],
+                ),
+                Text(
+                  '₹${breakup.refundAmount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: hasRefund ? Colors.green.shade900 : Colors.orange.shade900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (refundMode != null && refundMode != 'None') ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'Mode: ${refundMode == 'razorpay' ? 'Razorpay (Online Gateway)' : (refundMode == 'offline' ? 'Cash / Offline Refund' : refundMode)}',
+                style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: Colors.grey.shade600),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBreakupRow(String label, String value, {Color? color, bool isBold = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+            color: Colors.black87,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+            color: color ?? Colors.black87,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBreakupSubRow(String label, String value, {Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '• $label',
+            style: const TextStyle(fontSize: 11, color: Colors.black54),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color ?? Colors.black87,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
