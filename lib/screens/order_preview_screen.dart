@@ -721,7 +721,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
             ),
             content: Text(
               _bookOnBehalf && _selectedCustomer != null
-                  ? 'Booking for ${_selectedCustomer!['name']} is confirmed! Initial payment of ₹${_amountReceived.toStringAsFixed(0)} recorded.'
+                  ? 'Booking for ${_selectedCustomer!['name']} is confirmed! Initial payment of ₹${_amountReceived.toStringAsFixed(2)} recorded.'
                   : _paymentMethod == 'razorpay_full'
                       ? 'Your payment was successful and booking is confirmed!'
                       : _paymentMethod == 'razorpay_part'
@@ -1193,7 +1193,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
-                                    '₹${dateNet.toStringAsFixed(0)}',
+                                    '₹${dateNet.toStringAsFixed(2)}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: theme.colorScheme.primary,
@@ -1238,7 +1238,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                       Text(
                                         isBooked
                                             ? 'Unavailable (No Charge)'
-                                            : '₹${(s['price'] as num).toDouble().toStringAsFixed(0)}',
+                                            : '₹${(s['price'] as num).toDouble().toStringAsFixed(2)}',
                                         style: TextStyle(
                                           fontWeight: isBooked ? FontWeight.normal : FontWeight.bold,
                                           color: isBooked ? Colors.red : null,
@@ -1270,7 +1270,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        '-₹${dateDiscount.toStringAsFixed(0)}',
+                                        '-₹${dateDiscount.toStringAsFixed(2)}',
                                         style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
                                       ),
                                       const SizedBox(width: 6),
@@ -1656,7 +1656,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 _isCancellationActive
-                                    ? 'Turf fee: ₹${_cancellationTurfFee.toStringAsFixed(0)} • Estimated Refund: ₹${_estimatedRefundAmount.toStringAsFixed(0)}'
+                                    ? 'Turf fee: ₹${_cancellationTurfFee.toStringAsFixed(2)} • Estimated Refund: ₹${_estimatedRefundAmount.toStringAsFixed(2)}'
                                     : 'Venue cancellation is non-refundable once confirmed.',
                                 style: TextStyle(
                                   fontSize: 11,

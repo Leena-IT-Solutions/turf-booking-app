@@ -312,7 +312,7 @@ class BookingsTab extends StatelessWidget {
                               style: TextStyle(color: Colors.grey[600], fontSize: 13),
                             ),
                             Text(
-                              '₹${b.amount.toStringAsFixed(0)}',
+                              '₹${b.amount.toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -329,7 +329,7 @@ class BookingsTab extends StatelessWidget {
                               style: TextStyle(color: Colors.grey[600], fontSize: 13),
                             ),
                             Text(
-                              '₹${b.datePaidAmount.toStringAsFixed(0)}',
+                              '₹${b.datePaidAmount.toStringAsFixed(2)}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -347,7 +347,7 @@ class BookingsTab extends StatelessWidget {
                               style: TextStyle(color: Colors.grey[600], fontSize: 13),
                             ),
                             Text(
-                              '₹${b.dateBalanceAmount.toStringAsFixed(0)}',
+                              '₹${b.dateBalanceAmount.toStringAsFixed(2)}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,

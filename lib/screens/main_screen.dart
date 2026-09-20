@@ -2013,7 +2013,7 @@ class _MainScreenState extends State<MainScreen> {
                     Icons.cancel_outlined,
                     'Cancellation Policy',
                     isCancellationActive
-                        ? 'Cancel up to $cancellationHours hrs prior (Fee: ₹${cancellationFee.toStringAsFixed(0)})'
+                        ? 'Cancel up to $cancellationHours hrs prior (Fee: ₹${cancellationFee.toStringAsFixed(2)})'
                         : 'No cancellation allowed',
                     valueColor: isCancellationActive ? Colors.green : Colors.red,
                   ),
@@ -2030,7 +2030,7 @@ class _MainScreenState extends State<MainScreen> {
                       _buildDetailRow(
                         Icons.money_off,
                         'Fee Applied',
-                        '₹${bookingDate.cancellationFeeApplied.toStringAsFixed(0)}',
+                        '₹${bookingDate.cancellationFeeApplied.toStringAsFixed(2)}',
                         valueColor: Colors.orange,
                       ),
                     ],
@@ -2038,7 +2038,7 @@ class _MainScreenState extends State<MainScreen> {
                     _buildDetailRow(
                       Icons.currency_rupee,
                       'Refund Amount',
-                      '₹${bookingDate.refundAmount.toStringAsFixed(0)}',
+                      '₹${bookingDate.refundAmount.toStringAsFixed(2)}',
                       valueColor: Colors.green,
                     ),
                     const SizedBox(height: 12),
@@ -2102,9 +2102,9 @@ class _MainScreenState extends State<MainScreen> {
                                 final turfName = bookingDate.turfName;
                                 final date = bookingDate.bookingDate;
                                 final slotsText = slots.map((s) => s.timeRange).join(', ');
-                                final total = bookingDate.amount.toStringAsFixed(0);
-                                final paid = bookingDate.datePaidAmount.toStringAsFixed(0);
-                                final balance = bookingDate.dateBalanceAmount.toStringAsFixed(0);
+                                final total = bookingDate.amount.toStringAsFixed(2);
+                                final paid = bookingDate.datePaidAmount.toStringAsFixed(2);
+                                final balance = bookingDate.dateBalanceAmount.toStringAsFixed(2);
 
                                 String message = bookingDate.shareMessageTemplate ??
                                     "*Booking Confirmed!*\n\n⚽ *Turf:* {turf_name}\n📅 *Date:* {booking_date}\n⏰ *Slots:* {slots}\n\n💳 *Payment Details:*\n• Total Amount: ₹{total_amount}\n• Paid Amount: ₹{paid_amount}\n• Balance Due: ₹{balance_amount}\n\nThank you for booking with us!";
@@ -2234,7 +2234,7 @@ class _MainScreenState extends State<MainScreen> {
                                 ],
                               ),
                               Text(
-                                "₹${payment.amount.toStringAsFixed(0)}",
+                                "₹${payment.amount.toStringAsFixed(2)}",
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
@@ -2258,7 +2258,7 @@ class _MainScreenState extends State<MainScreen> {
                           style: TextStyle(fontSize: 13, color: Colors.grey),
                         ),
                         Text(
-                          '₹${(bookingDate.taxableAmount > 0 ? bookingDate.taxableAmount : (bookingDate.amount - bookingDate.turfGstAmount - bookingDate.platformFee - bookingDate.platformFeeGst)).toStringAsFixed(0)}',
+                          '₹${(bookingDate.taxableAmount > 0 ? bookingDate.taxableAmount : (bookingDate.amount - bookingDate.turfGstAmount - bookingDate.platformFee - bookingDate.platformFeeGst)).toStringAsFixed(2)}',
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                         ),
                       ],
@@ -2276,8 +2276,8 @@ class _MainScreenState extends State<MainScreen> {
                           ),
                           Text(
                             bookingDate.turfGstType == 'included'
-                                ? '₹${bookingDate.turfGstAmount.toStringAsFixed(0)}'
-                                : '+₹${bookingDate.turfGstAmount.toStringAsFixed(0)}',
+                                ? '₹${bookingDate.turfGstAmount.toStringAsFixed(2)}'
+                                : '+₹${bookingDate.turfGstAmount.toStringAsFixed(2)}',
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                           ),
                         ],
@@ -2293,7 +2293,7 @@ class _MainScreenState extends State<MainScreen> {
                             style: TextStyle(fontSize: 13, color: Colors.grey),
                           ),
                           Text(
-                            '+₹${(bookingDate.platformFee + bookingDate.platformFeeGst).toStringAsFixed(0)}',
+                            '+₹${(bookingDate.platformFee + bookingDate.platformFeeGst).toStringAsFixed(2)}',
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                           ),
                         ],
@@ -2312,7 +2312,7 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                       ),
                       Text(
-                        '₹${bookingDate.amount.toStringAsFixed(0)}',
+                        '₹${bookingDate.amount.toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -2332,7 +2332,7 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                       ),
                       Text(
-                        '₹${bookingDate.datePaidAmount.toStringAsFixed(0)}',
+                        '₹${bookingDate.datePaidAmount.toStringAsFixed(2)}',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -2353,7 +2353,7 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                       ),
                       Text(
-                        '₹${bookingDate.dateBalanceAmount.toStringAsFixed(0)}',
+                        '₹${bookingDate.dateBalanceAmount.toStringAsFixed(2)}',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -2411,7 +2411,7 @@ class _MainScreenState extends State<MainScreen> {
                                         border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
                                       ),
                                       child: Text(
-                                        'Cancellation Fee: ₹${fee.toStringAsFixed(0)} • Est. Refund: ₹${estRefund.toStringAsFixed(0)}',
+                                        'Cancellation Fee: ₹${fee.toStringAsFixed(2)} • Est. Refund: ₹${estRefund.toStringAsFixed(2)}',
                                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red[800]),
                                       ),
                                     ),
