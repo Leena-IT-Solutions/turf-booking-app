@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// The "Profile" tab: user info card + account settings actions. Purely
 /// presentational — the bottom-sheet/dialog flows it triggers (edit
@@ -22,6 +23,13 @@ class ProfileTab extends StatelessWidget {
     required this.onChangePassword,
     required this.onDeleteAccount,
   });
+
+  Future<void> _launchPolicyUrl(String urlString) async {
+    final uri = Uri.parse(urlString);
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
 
   Widget _buildProfileTile(IconData icon, String title, String subtitle) {
     return Card(
@@ -267,6 +275,63 @@ class ProfileTab extends StatelessWidget {
             subtitle: 'Permanently close and delete your credentials',
             iconColor: Colors.red,
             onTap: onDeleteAccount,
+          ),
+          const SizedBox(height: 24),
+          // Legal & Policies Section
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
+              child: Text(
+                'LEGAL & POLICIES',
+                style: TextStyle(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ),
+          _buildSettingsTile(
+            context,
+            icon: Icons.gavel_outlined,
+            title: 'Terms & Conditions',
+            subtitle: 'Rules, user agreement, and platform policies',
+            iconColor: Colors.blue[600]!,
+            onTap: () => _launchPolicyUrl('https://turf.infoleena.com/terms-and-conditions'),
+          ),
+          _buildSettingsTile(
+            context,
+            icon: Icons.privacy_tip_outlined,
+            title: 'Privacy Policy',
+            subtitle: 'Data usage, location permissions, and protection',
+            iconColor: const Color(0xFF059669),
+            onTap: () => _launchPolicyUrl('https://turf.infoleena.com/privacy-policy'),
+          ),
+          _buildSettingsTile(
+            context,
+            icon: Icons.cancel_outlined,
+            title: 'Refund & Cancellation Policy',
+            subtitle: 'Order cancellation rules and refund timelines',
+            iconColor: Colors.purple[600]!,
+            onTap: () => _launchPolicyUrl('https://turf.infoleena.com/refund-and-cancellation-policy'),
+          ),
+          _buildSettingsTile(
+            context,
+            icon: Icons.assignment_return_outlined,
+            title: 'Return Policy',
+            subtitle: '7-day product return and exchange terms',
+            iconColor: Colors.orange[700]!,
+            onTap: () => _launchPolicyUrl('https://turf.infoleena.com/return-policy'),
+          ),
+          _buildSettingsTile(
+            context,
+            icon: Icons.local_shipping_outlined,
+            title: 'Shipping Policy',
+            subtitle: 'Delivery timeframes, carriers, and confirmations',
+            iconColor: Colors.teal[600]!,
+            onTap: () => _launchPolicyUrl('https://turf.infoleena.com/shipping-policy'),
           ),
         ],
       ),
