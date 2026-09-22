@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api_client.dart';
@@ -239,6 +240,24 @@ class _MyAppState extends State<MyApp> {
           centerTitle: false,
         ),
       ),
+      // On Android, the system navigation bar defaults to a translucent scrim over app
+      // content in edge-to-edge mode -- this is what makes buttons/text near the bottom of
+      // the screen look "washed out" even when they're correctly positioned above it via
+      // SafeArea/MediaQuery padding. Pinning it to an opaque color matching the active
+      // theme removes that scrim entirely, independent of any padding math.
+      builder: (context, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            systemNavigationBarColor: isDark ? const Color(0xFF121315) : const Color(0xFFF9FAF5),
+            systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            systemNavigationBarDividerColor: Colors.transparent,
+          ),
+          child: child!,
+        );
+      },
       home: _token != null
           ? MainScreen(
               userName: _userName ?? 'Customer',

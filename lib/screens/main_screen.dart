@@ -1817,7 +1817,8 @@ class _MainScreenState extends State<MainScreen> {
                 _showLogoutDialog();
               },
             ),
-            const SizedBox(height: 16),
+            // Clears the device's system nav bar / gesture bar sitting underneath the drawer.
+            SizedBox(height: 16 + MediaQuery.of(context).padding.bottom),
           ],
         ),
       ),
