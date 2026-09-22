@@ -7,10 +7,12 @@ import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api_client.dart';
+import '../core/invoice_service.dart';
 import '../core/notification_service.dart';
 import '../core/snackbar_helper.dart';
 import '../models/booking.dart';
@@ -1912,6 +1914,8 @@ class _MainScreenState extends State<MainScreen> {
       formattedBookingType = 'Scattered Slots';
     }
 
+    bool isDownloadingBill = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -2388,7 +2392,71 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: isDownloadingBill
+                          ? null
+                          : () async {
+                              setSheetState(() => isDownloadingBill = true);
+                              try {
+                                final targetBookingId = bookingDate.bookingId > 0 ? bookingDate.bookingId : bookingDate.id;
+                                final path = await InvoiceService.downloadBill(widget.token, targetBookingId);
+                                if (path != null) {
+                                  final result = await OpenFilex.open(path);
+                                  if (result.type != ResultType.done && context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Bill saved to: $path')),
+                                    );
+                                  }
+                                } else if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Failed to download bill. Please try again.'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error downloading bill: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                setSheetState(() => isDownloadingBill = false);
+                              }
+                            },
+                      icon: isDownloadingBill
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Icon(Icons.receipt_long, size: 20),
+                      label: Text(
+                        isDownloadingBill ? 'Generating Bill...' : 'Download Bill',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   if (isManagerOrAdmin && !isPaid) ...[
                     SizedBox(
                       width: double.infinity,
