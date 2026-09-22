@@ -207,6 +207,8 @@ class _MainScreenState extends State<MainScreen> {
           }
 
           list.sort((a, b) {
+            final dateComp = (a.dateRaw ?? a.bookingDate).compareTo(b.dateRaw ?? b.bookingDate);
+            if (dateComp != 0) return dateComp;
             final timeA = a.slots.isNotEmpty ? (a.slots.first.fromTime ?? '') : '';
             final timeB = b.slots.isNotEmpty ? (b.slots.first.fromTime ?? '') : '';
             return timeA.compareTo(timeB);
