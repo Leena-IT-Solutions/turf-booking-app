@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api_client.dart';
+import '../core/notification_service.dart';
 import '../core/snackbar_helper.dart';
 import '../models/booking.dart';
 import '../models/turf.dart';
@@ -329,6 +330,16 @@ class _MainScreenState extends State<MainScreen> {
     _fetchTurfs();
     _fetchBookings();
     _fetchClientBookings();
+
+    NotificationService.onNavigateToBooking = (bookingId) {
+      if (mounted) {
+        setState(() {
+          _currentIndex = 1; // Switch to Bookings tab
+        });
+        _fetchBookings();
+        _fetchClientBookings();
+      }
+    };
   }
 
   void _startSliderTimer() {
@@ -1425,6 +1436,7 @@ class _MainScreenState extends State<MainScreen> {
     _sliderTimer?.cancel();
     _sliderPageController?.dispose();
     _bookingsScrollController.dispose();
+    NotificationService.onNavigateToBooking = null;
     super.dispose();
   }
 

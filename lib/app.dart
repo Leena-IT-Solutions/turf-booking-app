@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api_client.dart';
+import 'core/notification_service.dart';
 import 'screens/auth_screen.dart';
 import 'screens/main_screen.dart';
 
@@ -24,6 +25,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    NotificationService.initialize();
     ApiClient.onUnauthorized = _handleUnauthorized;
     _checkLoginStatus();
   }
@@ -91,6 +93,10 @@ class _MyAppState extends State<MyApp> {
         _userMobile = prefs.getString('user_mobile');
         _isLoading = false;
       });
+
+      if (_token != null && _token!.isNotEmpty) {
+        _registerDeviceToken(_token!);
+      }
     }
   }
 
@@ -116,17 +122,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _registerDeviceToken(String token) async {
-    try {
-      final deviceToken = 'fcm_device_token_${DateTime.now().millisecondsSinceEpoch}';
-      await ApiClient.post(
-        Uri.parse('${ApiClient.baseUrl}/user/device-token'),
-        headers: ApiClient.authHeaders(token),
-        body: jsonEncode({
-          'device_token': deviceToken,
-          'device_type': 'android',
-        }),
-      );
-    } catch (_) {}
+    await NotificationService.registerTokenWithBackend(token);
   }
 
   void _onLogout({bool isUnauthorized = false}) async {
@@ -137,6 +133,7 @@ class _MyAppState extends State<MyApp> {
 
     if (!isUnauthorized && token != null && token.isNotEmpty) {
       try {
+        await NotificationService.deleteTokenFromBackend(token);
         ApiClient.post(
           Uri.parse('${ApiClient.baseUrl}/logout'),
           headers: ApiClient.authHeaders(token),
