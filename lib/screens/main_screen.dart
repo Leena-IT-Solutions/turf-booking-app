@@ -160,6 +160,7 @@ class _MainScreenState extends State<MainScreen> {
               _bookings.addAll(list);
               _bookingsPage = currentPage;
             }
+            _sortBookings(_bookings, _bookingsFilter);
             _hasMoreBookings = currentPage < lastPage;
           });
         }
@@ -174,6 +175,20 @@ class _MainScreenState extends State<MainScreen> {
         });
       }
     }
+  }
+
+  void _sortBookings(List<Booking> list, String filter) {
+    list.sort((a, b) {
+      final dateA = a.dateRaw ?? a.bookingDate;
+      final dateB = b.dateRaw ?? b.bookingDate;
+      final dateComp = dateA.compareTo(dateB);
+      if (dateComp != 0) {
+        return filter == 'upcoming' ? dateComp : -dateComp;
+      }
+      final timeA = a.slots.isNotEmpty ? (a.slots.first.fromTime ?? '') : '';
+      final timeB = b.slots.isNotEmpty ? (b.slots.first.fromTime ?? '') : '';
+      return timeA.compareTo(timeB);
+    });
   }
 
   Future<void> _fetchClientBookings() async {
@@ -208,13 +223,7 @@ class _MainScreenState extends State<MainScreen> {
             list = list.where((b) => b.isCancelled).toList();
           }
 
-          list.sort((a, b) {
-            final dateComp = (a.dateRaw ?? a.bookingDate).compareTo(b.dateRaw ?? b.bookingDate);
-            if (dateComp != 0) return dateComp;
-            final timeA = a.slots.isNotEmpty ? (a.slots.first.fromTime ?? '') : '';
-            final timeB = b.slots.isNotEmpty ? (b.slots.first.fromTime ?? '') : '';
-            return timeA.compareTo(timeB);
-          });
+          _sortBookings(list, _clientBookingFilter);
 
           setState(() {
             _clientBookings = list;
@@ -1182,7 +1191,9 @@ class _MainScreenState extends State<MainScreen> {
             left: 24,
             right: 24,
             top: 24,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            // viewInsets.bottom clears the keyboard; padding.bottom clears the device's
+            // system nav bar / gesture bar, which sits underneath modal bottom sheets.
+            bottom: MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom + 24,
           ),
           child: Form(
             key: formKey,
@@ -1283,7 +1294,9 @@ class _MainScreenState extends State<MainScreen> {
             left: 24,
             right: 24,
             top: 24,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            // viewInsets.bottom clears the keyboard; padding.bottom clears the device's
+            // system nav bar / gesture bar, which sits underneath modal bottom sheets.
+            bottom: MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom + 24,
           ),
           child: Form(
             key: formKey,
@@ -1926,7 +1939,13 @@ class _MainScreenState extends State<MainScreen> {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return Container(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.fromLTRB(
+                24,
+                24,
+                24,
+                // Clears the device's system nav bar / gesture bar sitting underneath this sheet.
+                24 + MediaQuery.of(context).padding.bottom,
+              ),
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.of(context).size.height * 0.85,
               ),

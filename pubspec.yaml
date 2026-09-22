@@ -70,6 +70,7 @@ flutter:
 
   assets:
     - assets/logo/logo.png
+    - assets/logo/logo_adaptive_foreground.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -103,8 +104,15 @@ flutter_launcher_icons:
   image_path: "assets/logo/logo.png"
   remove_alpha_ios: true
   background_color: "#121315"
-  adaptive_icon_background: "#121315"
-  adaptive_icon_foreground: "assets/logo/logo.png"
+  # Android adaptive icons: the source logo's artwork fills ~92% of its canvas with almost
+  # no transparent padding, but Android expects content within a ~66% "safe zone" -- without
+  # padding, the OS-level circular/squircle launcher mask crops most of it away, leaving only
+  # fragments visible. logo_adaptive_foreground.png is the same artwork scaled to ~56% of the
+  # canvas, centered on full transparency, so nothing gets clipped by any launcher's mask shape.
+  # Background color matches the app's brand green (see ThemeData seedColor in app.dart) instead
+  # of the app's dark-mode UI color, so the Android icon matches the iOS icon's appearance.
+  adaptive_icon_background: "#10B981"
+  adaptive_icon_foreground: "assets/logo/logo_adaptive_foreground.png"
 
 flutter_native_splash:
   color: "#121315"

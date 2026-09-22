@@ -797,7 +797,9 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       body: (_configLoading || (_previewLoading && _previewData == null))
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              // Bottom padding also clears the device's system nav bar / gesture bar, so
+              // the "Pay & Confirm" button at the end of this scroll view isn't hidden under it.
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
