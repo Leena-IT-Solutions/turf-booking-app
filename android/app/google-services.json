@@ -1,13 +1,32 @@
 {
   "project_info": {
-    "project_number": "123456789012",
-    "project_id": "turf-booking-dev",
-    "storage_bucket": "turf-booking-dev.appspot.com"
+    "project_number": "602781760178",
+    "project_id": "leena-it-solutions-50777",
+    "storage_bucket": "leena-it-solutions-50777.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789012:android:abcdef0123456789",
+        "mobilesdk_app_id": "1:602781760178:android:8d3d97b5c8821685e627ab",
+        "android_client_info": {
+          "package_name": "com.company.alert.server_alert_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAobI_gl1WoVEWGdpfdLKDEU3ZCJdZAFDM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:602781760178:android:077fcea1165f5b42e627ab",
         "android_client_info": {
           "package_name": "com.infoleena.turf.booking"
         }
@@ -15,7 +34,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyFakeKeyForBuildValidation"
+          "current_key": "AIzaSyAobI_gl1WoVEWGdpfdLKDEU3ZCJdZAFDM"
         }
       ],
       "services": {
