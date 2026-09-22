@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -37,7 +38,7 @@ class NotificationService {
 
       // 2. Initialize local notifications plugin
       const initializationSettingsAndroid =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+          AndroidInitializationSettings('@drawable/ic_notification');
       const initializationSettingsDarwin = DarwinInitializationSettings(
         requestAlertPermission: true,
         requestBadgePermission: true,
@@ -79,7 +80,9 @@ class NotificationService {
                 _channel.id,
                 _channel.name,
                 channelDescription: _channel.description,
-                icon: '@mipmap/ic_launcher',
+                icon: '@drawable/ic_notification',
+                color: const Color(0xFF10B981),
+                largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
                 importance: Importance.high,
                 priority: Priority.high,
               ),
