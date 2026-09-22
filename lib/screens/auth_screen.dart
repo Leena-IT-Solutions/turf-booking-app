@@ -524,7 +524,7 @@ class _AuthScreenState extends State<AuthScreen> {
             decoration: const InputDecoration(
               labelText: 'Mobile Number',
               prefixIcon: Icon(Icons.phone_outlined),
-              hintText: 'e.g. 9664588677',
+              hintText: 'e.g. 9876543210',
               border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
             ),
             validator: (value) => value == null || value.trim().length < 10 ? 'Please enter a valid 10-digit mobile number' : null,

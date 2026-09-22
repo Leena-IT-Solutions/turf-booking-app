@@ -77,7 +77,7 @@ class Turf {
     if (contactNumber != null && contactNumber!.trim().isNotEmpty) {
       return contactNumber!.trim();
     }
-    return '9664588677';
+    return '';
   }
 
   String get effectiveWhatsappNumber {
