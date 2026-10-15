@@ -1550,6 +1550,155 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  Future<void> _openTurfById(int turfId) async {
+    for (final t in _turfs) {
+      if (t.id == turfId) {
+        await _openTurfDetail(t);
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final url = Uri.parse('${ApiClient.baseUrl}/turfs/$turfId');
+      final res = await ApiClient.get(url, headers: ApiClient.authHeaders(widget.token));
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data is Map<String, dynamic>) {
+          final turf = Turf.fromJson(data);
+          if (mounted) {
+            await _openTurfDetail(turf);
+          }
+          return;
+        }
+      }
+      if (mounted) {
+        _showError('Turf not found or currently unavailable.');
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        _showError('Failed to load turf details.');
+      }
+    }
+  }
+
+  Future<void> _handleSliderTap(String rawUrl) async {
+    final link = rawUrl.trim();
+    if (link.isEmpty) return;
+
+    final cleanRoute = link.toLowerCase().replaceFirst(RegExp(r'^/+'), '');
+
+    if (cleanRoute == 'bookings' || cleanRoute == 'my_bookings' || cleanRoute == 'my-bookings') {
+      if (mounted) {
+        setState(() => _currentIndex = 1);
+        _fetchBookings();
+      }
+      return;
+    }
+
+    if (cleanRoute == 'support' || cleanRoute == 'help' || cleanRoute == 'chat') {
+      if (mounted) {
+        setState(() {
+          _currentIndex = 2;
+          _showChatWindow = false;
+        });
+      }
+      return;
+    }
+
+    if (cleanRoute == 'profile' || cleanRoute == 'account') {
+      if (mounted) {
+        setState(() => _currentIndex = 3);
+      }
+      return;
+    }
+
+    if (cleanRoute == 'client_bookings' || cleanRoute == 'client-bookings' || cleanRoute == 'clientbookings') {
+      final hasStaffOrAdmin = _userRoles.any((r) =>
+          r == 'turf-admin' || r == 'turf-manager' || r == 'manager' || r == 'turf-staff' || r == 'saas-admin' || r == 'admin');
+      if (hasStaffOrAdmin) {
+        if (mounted) {
+          setState(() => _currentIndex = 4);
+          _fetchClientBookings();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Client Bookings is only accessible to turf staff or admins.')),
+          );
+        }
+      }
+      return;
+    }
+
+    if (cleanRoute == 'dashboard' || cleanRoute == 'admin-dashboard' || cleanRoute == 'turf-dashboard') {
+      final isManagerOrAdmin = _userRoles.any((r) =>
+          r == 'turf-admin' || r == 'turf-manager' || r == 'manager' || r == 'saas-admin' || r == 'admin');
+      if (isManagerOrAdmin) {
+        if (mounted) {
+          setState(() => _currentIndex = 5);
+          _fetchDashboardStats();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Dashboard is only accessible to turf owners and managers.')),
+          );
+        }
+      }
+      return;
+    }
+
+    final turfMatch = RegExp(r'^(?:turfs?|turf_detail|ground)[/:=](\d+)$', caseSensitive: false).firstMatch(cleanRoute);
+    if (turfMatch != null) {
+      final turfId = int.tryParse(turfMatch.group(1)!);
+      if (turfId != null) {
+        await _openTurfById(turfId);
+        return;
+      }
+    }
+
+    Uri? targetUri;
+    if (link.startsWith('http://') ||
+        link.startsWith('https://') ||
+        link.startsWith('tel:') ||
+        link.startsWith('mailto:') ||
+        link.startsWith('whatsapp:')) {
+      targetUri = Uri.tryParse(link);
+    } else if (link.startsWith('/')) {
+      final webBase = ApiClient.baseUrl.replaceAll(RegExp(r'/api$'), '');
+      targetUri = Uri.tryParse('$webBase$link');
+    } else if (link.contains('.') && !link.contains(' ')) {
+      targetUri = Uri.tryParse('https://$link');
+    }
+
+    if (targetUri != null) {
+      try {
+        final launched = await launchUrl(targetUri, mode: LaunchMode.externalApplication);
+        if (!launched && mounted) {
+          await launchUrl(targetUri, mode: LaunchMode.platformDefault);
+        }
+      } catch (e) {
+        if (mounted) {
+          _showError('Could not open link: $link');
+        }
+      }
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No action available for: $link')),
+      );
+    }
+  }
+
   Widget _buildHomeTab() {
     return HomeTab(
       userName: widget.userName,
@@ -1568,6 +1717,7 @@ class _MainScreenState extends State<MainScreen> {
       onOpenCityPicker: _showCityPickerDialog,
       onRefreshTurfs: _fetchTurfs,
       onOpenTurfDetail: _openTurfDetail,
+      onSliderTap: _handleSliderTap,
     );
   }
 

@@ -23,6 +23,7 @@ class HomeTab extends StatelessWidget {
   final VoidCallback onOpenCityPicker;
   final Future<void> Function() onRefreshTurfs;
   final void Function(Turf turf) onOpenTurfDetail;
+  final ValueChanged<String>? onSliderTap;
 
   const HomeTab({
     super.key,
@@ -42,6 +43,7 @@ class HomeTab extends StatelessWidget {
     required this.onOpenCityPicker,
     required this.onRefreshTurfs,
     required this.onOpenTurfDetail,
+    this.onSliderTap,
   });
 
   Widget _buildSliderWidget(BuildContext context) {
@@ -83,8 +85,8 @@ class HomeTab extends StatelessWidget {
                 return GestureDetector(
                   onTap: () {
                     final linkUrl = slide['link_url'];
-                    if (linkUrl != null && linkUrl.toString().isNotEmpty) {
-                      // Custom click action
+                    if (linkUrl != null && linkUrl.toString().trim().isNotEmpty) {
+                      onSliderTap?.call(linkUrl.toString().trim());
                     }
                   },
                   child: Stack(
