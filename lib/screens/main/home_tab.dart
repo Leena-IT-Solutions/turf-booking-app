@@ -460,7 +460,7 @@ class HomeTab extends StatelessWidget {
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                'No approved turfs found',
+                                'No turfs found nearby',
                                 style: TextStyle(
                                   color: theme.colorScheme.secondary,
                                   fontWeight: FontWeight.bold,
