@@ -169,6 +169,36 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       _manageableTurfIds = prefs.getStringList('manageable_turf_ids') ?? [];
     });
     _fetchPreview(showFullLoader: true);
+
+    if (widget.token.isNotEmpty) {
+      try {
+        final res = await ApiClient.get(
+          Uri.parse('${ApiClient.baseUrl}/user'),
+          headers: ApiClient.authHeaders(widget.token),
+        );
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body);
+          if (data is Map<String, dynamic>) {
+            final p = await SharedPreferences.getInstance();
+            if (data['roles'] != null) {
+              final roles = List<String>.from((data['roles'] as List)
+                  .map((r) => r is Map ? (r['name'] ?? '') : r.toString()));
+              await p.setStringList('user_roles', roles);
+              if (mounted) setState(() => _userRoles = roles);
+            }
+            if (data['manageable_turf_ids'] != null) {
+              final manageable = List<dynamic>.from(data['manageable_turf_ids'] as List)
+                  .map((t) => t.toString())
+                  .toList();
+              await p.setStringList('manageable_turf_ids', manageable);
+              if (mounted) setState(() => _manageableTurfIds = manageable);
+            }
+          }
+        }
+      } catch (_) {
+        // Ignore offline sync error
+      }
+    }
   }
 
   Future<void> _fetchPreview({bool showFullLoader = false}) async {

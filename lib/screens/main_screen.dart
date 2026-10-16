@@ -69,6 +69,56 @@ class _MainScreenState extends State<MainScreen> {
         _fetchDashboardStats();
       }
     }
+    // Background sync: always refresh user profile, roles, and manageable turfs from API
+    _syncUserProfileWithApi();
+  }
+
+  Future<void> _syncUserProfileWithApi() async {
+    if (widget.token.isEmpty) return;
+    try {
+      final response = await ApiClient.get(
+        Uri.parse('${ApiClient.baseUrl}/user'),
+        headers: ApiClient.authHeaders(widget.token),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic>) {
+          final prefs = await SharedPreferences.getInstance();
+          if (data['name'] != null) await prefs.setString('user_name', data['name']);
+          if (data['email'] != null) await prefs.setString('user_email', data['email']);
+          if (data['mobile'] != null) await prefs.setString('user_mobile', data['mobile']);
+
+          List<String> updatedRoles = _userRoles;
+          if (data['roles'] != null) {
+            updatedRoles = List<String>.from((data['roles'] as List)
+                .map((r) => r is Map ? (r['name'] ?? '') : r.toString()));
+            await prefs.setStringList('user_roles', updatedRoles);
+          }
+
+          List<String> updatedTurfIds = _manageableTurfIds;
+          if (data['manageable_turf_ids'] != null) {
+            updatedTurfIds = List<dynamic>.from(data['manageable_turf_ids'] as List)
+                .map((t) => t.toString())
+                .toList();
+            await prefs.setStringList('manageable_turf_ids', updatedTurfIds);
+          }
+
+          if (mounted) {
+            setState(() {
+              _userRoles = updatedRoles;
+              _manageableTurfIds = updatedTurfIds;
+            });
+            final isManagerOrAdmin = updatedRoles.any((r) =>
+                r == 'turf-admin' || r == 'turf-manager' || r == 'saas-admin' || r == 'admin');
+            if (isManagerOrAdmin && _dashboardStats == null) {
+              _fetchDashboardStats();
+            }
+          }
+        }
+      }
+    } catch (_) {
+      // Ignore background sync errors when offline
+    }
   }
 
   List<dynamic> _supportMessages = [];
@@ -424,6 +474,7 @@ class _MainScreenState extends State<MainScreen> {
     } catch (e) {
       if (mounted) setState(() => _turfsLoading = false);
     }
+    _syncUserProfileWithApi();
   }
 
   String _capitalizeCity(String name) {

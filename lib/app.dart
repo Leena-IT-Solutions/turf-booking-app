@@ -80,6 +80,10 @@ class _MyAppState extends State<MyApp> {
             final roles = List<String>.from((user['roles'] as List).map((r) => r is Map ? (r['name'] ?? '') : r.toString()));
             await prefs.setStringList('user_roles', roles);
           }
+          if (user['manageable_turf_ids'] != null) {
+            final manageable = List<dynamic>.from(user['manageable_turf_ids'] as List).map((t) => t.toString()).toList();
+            await prefs.setStringList('manageable_turf_ids', manageable);
+          }
         }
       }
     } catch (_) {
