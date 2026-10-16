@@ -2912,7 +2912,11 @@ class _MainScreenState extends State<MainScreen> {
   void _showRecordPaymentDialog(BuildContext context, Booking bookingDate) {
     final id = bookingDate.id;
     String method = 'Cash';
-    final TextEditingController amountController = TextEditingController();
+    final TextEditingController amountController = TextEditingController(
+      text: bookingDate.dateBalanceAmount > 0
+          ? bookingDate.dateBalanceAmount.toStringAsFixed(2)
+          : '',
+    );
 
     showDialog(
       context: context,
