@@ -116,6 +116,9 @@ class Booking {
   final String? refundedAt;
   final String? shareMessageTemplate;
   final int activeDatesCount;
+  final bool isRescheduleActive;
+  final int maxReschedules;
+  final int rescheduleCount;
   final CancellationBreakup? cancellationBreakup;
   final CancellationBreakup? allDatesCancellationBreakup;
 
@@ -162,6 +165,9 @@ class Booking {
     this.refundedAt,
     this.shareMessageTemplate,
     this.activeDatesCount = 1,
+    this.isRescheduleActive = true,
+    this.maxReschedules = 1,
+    this.rescheduleCount = 0,
     this.cancellationBreakup,
     this.allDatesCancellationBreakup,
   });
@@ -243,6 +249,9 @@ class Booking {
       refundedAt: json['refunded_at'],
       shareMessageTemplate: json['share_message_template'],
       activeDatesCount: json['active_dates_count'] ?? 1,
+      isRescheduleActive: json['is_reschedule_active'] == null ? true : (json['is_reschedule_active'] == true || json['is_reschedule_active'] == 1),
+      maxReschedules: json['max_reschedules'] is num ? (json['max_reschedules'] as num).toInt() : int.tryParse(json['max_reschedules']?.toString() ?? '1') ?? 1,
+      rescheduleCount: json['reschedule_count'] is num ? (json['reschedule_count'] as num).toInt() : int.tryParse(json['reschedule_count']?.toString() ?? '0') ?? 0,
       cancellationBreakup: json['cancellation_breakup'] != null
           ? CancellationBreakup.fromJson(json['cancellation_breakup'] as Map<String, dynamic>)
           : null,

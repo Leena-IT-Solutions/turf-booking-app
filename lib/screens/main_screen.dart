@@ -29,6 +29,7 @@ import '../core/profile_service.dart';
 import '../widgets/change_password_bottom_sheet.dart';
 import '../widgets/edit_profile_bottom_sheet.dart';
 import '../widgets/record_payment_dialog.dart';
+import '../widgets/reschedule_booking_sheet.dart';
 
 class MainScreen extends StatefulWidget {
   final String userName;
@@ -1835,8 +1836,40 @@ class _MainScreenState extends State<MainScreen> {
     final isPaid = bookingDate.isPaid;
     final bookingType = bookingDate.bookingType;
     final String bookingTurfId = bookingDate.turfId ?? '';
-    final bool isManagerOrAdmin = _userRoles.any((r) => ['turf-admin', 'manager'].contains(r)) &&
-        _manageableTurfIds.contains(bookingTurfId);
+    final bool isManagerOrAdmin = (_userRoles.any((r) => ['turf-admin', 'manager', 'saas-admin'].contains(r))) &&
+        (_userRoles.contains('saas-admin') || _manageableTurfIds.contains(bookingTurfId));
+
+    bool isPastSession = false;
+    try {
+      final dateRawStr = bookingDate.dateRaw ?? '';
+      if (dateRawStr.isNotEmpty) {
+        String earliestTimeStr = '23:59';
+        if (slots.isNotEmpty) {
+          final firstSlot = slots.first.timeRange ?? '';
+          if (firstSlot.contains(' - ')) {
+            final timePart = firstSlot.split(' - ').first;
+            final parts = timePart.split(' ');
+            if (parts.length == 2) {
+              final timeDigits = parts[0].split(':');
+              int hour = int.parse(timeDigits[0]);
+              final min = int.parse(timeDigits[1]);
+              final amPm = parts[1].toUpperCase();
+              if (amPm == 'PM' && hour != 12) hour += 12;
+              if (amPm == 'AM' && hour == 12) hour = 0;
+              earliestTimeStr = "${hour.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}";
+            }
+          }
+        }
+        final DateTime sessionStart = DateTime.parse("$dateRawStr $earliestTimeStr");
+        isPastSession = sessionStart.isBefore(DateTime.now());
+      }
+    } catch (_) {}
+
+    final bool canReschedule = isManagerOrAdmin &&
+        bookingDate.status != 'Cancelled' &&
+        bookingDate.isRescheduleActive &&
+        !isPastSession &&
+        bookingDate.rescheduleCount < bookingDate.maxReschedules;
 
     final bool isCancellationActive = bookingDate.isCancellationActive;
     final int cancellationHours = bookingDate.cancellationHours;
@@ -2459,6 +2492,30 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
+                  if (canReschedule) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showRescheduleSheet(context, bookingDate),
+                        icon: const Icon(Icons.edit_calendar_rounded, size: 18),
+                        label: Text(
+                          bookingDate.rescheduleCount > 0
+                              ? 'Reschedule Again (${bookingDate.rescheduleCount}/${bookingDate.maxReschedules})'
+                              : 'Reschedule Session',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: theme.colorScheme.primary,
+                          side: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   if (bookingDate.status != 'Cancelled') ...[
                     SizedBox(
                       width: double.infinity,
@@ -2681,6 +2738,24 @@ class _MainScreenState extends State<MainScreen> {
         onSuccess: () {
           Navigator.pop(context); // Close details bottom sheet
           _showSuccess('Payment recorded successfully.');
+          _fetchBookings(refresh: true);
+          _fetchClientBookings();
+          _fetchDashboardStats();
+        },
+      ),
+    );
+  }
+
+  void _showRescheduleSheet(BuildContext context, Booking bookingDate) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => RescheduleBookingSheet(
+        bookingDate: bookingDate,
+        token: widget.token,
+        onSuccess: () {
+          Navigator.pop(context); // Close details bottom sheet
           _fetchBookings(refresh: true);
           _fetchClientBookings();
           _fetchDashboardStats();
