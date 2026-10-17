@@ -24,6 +24,9 @@ class ApiClient {
         if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
       };
 
+  /// Swappable HTTP client for dependency injection in tests.
+  static http.Client client = http.Client();
+
   /// Inspects response status. If 401 Unauthorized, triggers [onUnauthorized].
   static http.Response checkResponse(http.Response response) {
     if (response.statusCode == 401) {
@@ -34,25 +37,25 @@ class ApiClient {
 
   /// Convenience GET with automatic 401 check
   static Future<http.Response> get(Uri url, {Map<String, String>? headers}) async {
-    final response = await http.get(url, headers: headers);
+    final response = await client.get(url, headers: headers);
     return checkResponse(response);
   }
 
   /// Convenience POST with automatic 401 check
   static Future<http.Response> post(Uri url, {Map<String, String>? headers, Object? body, Encoding? encoding}) async {
-    final response = await http.post(url, headers: headers, body: body, encoding: encoding);
+    final response = await client.post(url, headers: headers, body: body, encoding: encoding);
     return checkResponse(response);
   }
 
   /// Convenience PUT with automatic 401 check
   static Future<http.Response> put(Uri url, {Map<String, String>? headers, Object? body, Encoding? encoding}) async {
-    final response = await http.put(url, headers: headers, body: body, encoding: encoding);
+    final response = await client.put(url, headers: headers, body: body, encoding: encoding);
     return checkResponse(response);
   }
 
   /// Convenience DELETE with automatic 401 check
   static Future<http.Response> delete(Uri url, {Map<String, String>? headers, Object? body, Encoding? encoding}) async {
-    final response = await http.delete(url, headers: headers, body: body, encoding: encoding);
+    final response = await client.delete(url, headers: headers, body: body, encoding: encoding);
     return checkResponse(response);
   }
 }

@@ -25,6 +25,7 @@ import 'main/profile_tab.dart';
 import 'main/support_tab.dart';
 import 'map_picker_screen.dart';
 import 'turf_detail_screen.dart';
+import '../widgets/record_payment_dialog.dart';
 
 class MainScreen extends StatefulWidget {
   final String userName;
@@ -2910,112 +2911,19 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _showRecordPaymentDialog(BuildContext context, Booking bookingDate) {
-    final id = bookingDate.id;
-    String method = 'Cash';
-    final TextEditingController amountController = TextEditingController(
-      text: bookingDate.dateBalanceAmount > 0
-          ? bookingDate.dateBalanceAmount.toStringAsFixed(2)
-          : '',
-    );
-
     showDialog(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Record Offline Payment'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Select Payment Method:'),
-                    const SizedBox(height: 8),
-                    DropdownButton<String>(
-                      value: method,
-                      isExpanded: true,
-                      onChanged: (val) {
-                        if (val != null) {
-                          setDialogState(() {
-                            method = val;
-                          });
-                        }
-                      },
-                      items: ['Cash', 'UPI', 'Other'].map((m) {
-                        return DropdownMenuItem<String>(
-                          value: m,
-                          child: Text(m),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: amountController,
-                      decoration: const InputDecoration(
-                        labelText: 'Payment Amount (₹)',
-                        hintText: 'Enter amount collected',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final amt = double.tryParse(amountController.text) ?? 0.0;
-                    if (amt <= 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please enter a valid amount'), backgroundColor: Colors.red),
-                      );
-                      return;
-                    }
-
-                    try {
-                      final response = await ApiClient.post(
-                        Uri.parse('${ApiClient.baseUrl}/booking-dates/$id/payments'),
-                        headers: ApiClient.authHeaders(widget.token),
-                        body: jsonEncode({
-                          'payment_method': method,
-                          'amount': amt,
-                        }),
-                      );
-
-                      if (response.statusCode == 200) {
-                        if (!context.mounted) return;
-                        Navigator.pop(context);
-                        Navigator.pop(context);
-                        _showSuccess('Payment recorded successfully.');
-                        _fetchBookings(refresh: true);
-                        _fetchClientBookings();
-                        _fetchDashboardStats();
-                      } else {
-                        if (!context.mounted) return;
-                        final msg = jsonDecode(response.body)['message'] ?? 'Failed to record payment.';
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(msg), backgroundColor: Colors.red),
-                        );
-                      }
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red),
-                      );
-                    }
-                  },
-                  child: const Text('Record'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (dialogContext) => RecordPaymentDialog(
+        bookingDate: bookingDate,
+        token: widget.token,
+        onSuccess: () {
+          Navigator.pop(context); // Close details bottom sheet
+          _showSuccess('Payment recorded successfully.');
+          _fetchBookings(refresh: true);
+          _fetchClientBookings();
+          _fetchDashboardStats();
+        },
+      ),
     );
   }
 

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
 
 import '../core/api_client.dart';
 import '../core/snackbar_helper.dart';
@@ -62,7 +62,7 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('${ApiClient.baseUrl}/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -101,7 +101,7 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('${ApiClient.baseUrl}/send-whatsapp-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -133,7 +133,7 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('${ApiClient.baseUrl}/verify-whatsapp-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -170,7 +170,7 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('${ApiClient.baseUrl}/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -210,7 +210,7 @@ class _AuthScreenState extends State<AuthScreen> {
       final input = _forgotInputController.text.trim();
       final isEmail = input.contains('@');
 
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse(isEmail ? '${ApiClient.baseUrl}/forgot-password' : '${ApiClient.baseUrl}/send-whatsapp-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(isEmail ? {
@@ -247,7 +247,7 @@ class _AuthScreenState extends State<AuthScreen> {
       final input = _forgotInputController.text.trim();
       final isEmail = input.contains('@');
 
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse(isEmail ? '${ApiClient.baseUrl}/verify-otp' : '${ApiClient.baseUrl}/verify-whatsapp-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -280,7 +280,7 @@ class _AuthScreenState extends State<AuthScreen> {
       final input = _forgotInputController.text.trim();
       final isEmail = input.contains('@');
 
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('${ApiClient.baseUrl}/reset-password'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
