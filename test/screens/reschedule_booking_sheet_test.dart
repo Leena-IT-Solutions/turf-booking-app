@@ -75,16 +75,14 @@ void main() {
     ));
 
     final slotsJson = {
-      'success': true,
       'booking_date_id': 101,
       'date': '2026-10-25',
-      'is_same_date': false,
       'slots': [
         {
           'id': 10,
-          'start_time': '07:00:00',
-          'end_time': '08:00:00',
-          'time_range': '07:00 PM - 08:00 PM',
+          'from_time': '07:00:00',
+          'to_time': '08:00:00',
+          'time_label': '07:00 PM - 08:00 PM',
           'price': 1500.0,
           'is_available': true,
           'is_current_slot': false,
@@ -94,25 +92,21 @@ void main() {
 
     final previewJson = {
       'success': true,
-      'preview': {
-        'old_date': '2026-10-20',
-        'new_date': '2026-10-25',
-        'old_slot_count': 1,
-        'new_slot_count': 1,
-        'old_amount': 1000.0,
-        'new_amount': 1500.0,
-        'difference': 500.0,
-        'direction': 'extra_charge',
-        'refund_channel': null,
-        'message': 'Collect ₹500.00 extra at the venue (Cash/UPI).',
-      },
+      'from_date': '2026-10-20',
+      'to_date': '2026-10-25',
+      'old_amount': 1000.0,
+      'new_amount': 1500.0,
+      'price_difference': 500.0,
+      'settlement_type': 'balance_due',
+      'refund_amount': 0.0,
+      'refund_channel': null,
     };
 
     when(() => mockClient.get(any(), headers: any(named: 'headers')))
         .thenAnswer((_) async => http.Response(jsonEncode(slotsJson), 200));
 
     when(() => mockClient.post(
-      any(that: predicate<Uri>((u) => u.path.contains('reschedule-preview'))),
+      any(that: predicate<Uri>((u) => u.path.contains('reschedule/preview'))),
       headers: any(named: 'headers'),
       body: any(named: 'body'),
     )).thenAnswer((_) async => http.Response.bytes(
@@ -152,16 +146,14 @@ void main() {
     ));
 
     final slotsJson = {
-      'success': true,
       'booking_date_id': 101,
       'date': '2026-10-25',
-      'is_same_date': false,
       'slots': [
         {
           'id': 10,
-          'start_time': '07:00:00',
-          'end_time': '08:00:00',
-          'time_range': '07:00 PM - 08:00 PM',
+          'from_time': '07:00:00',
+          'to_time': '08:00:00',
+          'time_label': '07:00 PM - 08:00 PM',
           'price': 1000.0,
           'is_available': true,
           'is_current_slot': false,
@@ -172,33 +164,26 @@ void main() {
     final rescheduleJson = {
       'success': true,
       'message': 'Session rescheduled successfully!',
-      'booking_date_id': 101,
-      'new_date': '2026-10-25',
-      'difference': 0.0,
-      'direction': 'equal',
+      'reschedule': {'id': 1, 'booking_date_id': 101, 'to_date': '2026-10-25'},
     };
 
     when(() => mockClient.get(any(), headers: any(named: 'headers')))
         .thenAnswer((_) async => http.Response(jsonEncode(slotsJson), 200));
 
     when(() => mockClient.post(
-      any(that: predicate<Uri>((u) => u.path.contains('reschedule-preview'))),
+      any(that: predicate<Uri>((u) => u.path.contains('reschedule/preview'))),
       headers: any(named: 'headers'),
       body: any(named: 'body'),
     )).thenAnswer((_) async => http.Response(jsonEncode({
       'success': true,
-      'preview': {
-        'old_date': '2026-10-20',
-        'new_date': '2026-10-25',
-        'old_slot_count': 1,
-        'new_slot_count': 1,
-        'old_amount': 1000.0,
-        'new_amount': 1000.0,
-        'difference': 0.0,
-        'direction': 'equal',
-        'refund_channel': null,
-        'message': 'No price change.',
-      }
+      'from_date': '2026-10-20',
+      'to_date': '2026-10-25',
+      'old_amount': 1000.0,
+      'new_amount': 1000.0,
+      'price_difference': 0.0,
+      'settlement_type': 'none',
+      'refund_amount': 0.0,
+      'refund_channel': null,
     }), 200));
 
     when(() => mockClient.post(

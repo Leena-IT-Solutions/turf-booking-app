@@ -24,9 +24,10 @@ class RescheduleSlot {
   factory RescheduleSlot.fromJson(Map<String, dynamic> json) {
     return RescheduleSlot(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
-      startTime: json['start_time']?.toString() ?? '',
-      endTime: json['end_time']?.toString() ?? '',
-      timeRange: json['time_range']?.toString() ?? '',
+      // Field names follow GET /booking-dates/{id}/reschedule/slots (BookingRescheduleService::slots).
+      startTime: json['from_time']?.toString() ?? '',
+      endTime: json['to_time']?.toString() ?? '',
+      timeRange: json['time_label']?.toString() ?? '',
       price: json['price'] is num ? (json['price'] as num).toDouble() : double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
       isAvailable: json['is_available'] == true || json['is_available'] == 1,
       isCurrentSlot: json['is_current_slot'] == true || json['is_current_slot'] == 1,
@@ -59,17 +60,32 @@ class ReschedulePreview {
     required this.message,
   });
 
-  factory ReschedulePreview.fromJson(Map<String, dynamic> json) {
+  /// Parses POST /booking-dates/{id}/reschedule/preview (BookingRescheduleService::preview), which
+  /// returns flat fields. [newSlotCount] is the number of slots the manager picked — the server
+  /// doesn't echo it back.
+  factory ReschedulePreview.fromJson(Map<String, dynamic> json, {required int newSlotCount}) {
+    double toDouble(dynamic v) => v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '') ?? 0.0;
+
+    const directionBySettlement = {
+      'none': 'equal',
+      'balance_due': 'extra_charge',
+      'refund': 'refund',
+    };
+    const channelByServer = {
+      'online_gateway': 'gateway',
+      'offline': 'cash',
+    };
+
     return ReschedulePreview(
-      oldDate: json['old_date']?.toString() ?? '',
-      newDate: json['new_date']?.toString() ?? '',
-      oldSlotCount: json['old_slot_count'] is num ? (json['old_slot_count'] as num).toInt() : 0,
-      newSlotCount: json['new_slot_count'] is num ? (json['new_slot_count'] as num).toInt() : 0,
-      oldAmount: json['old_amount'] is num ? (json['old_amount'] as num).toDouble() : double.tryParse(json['old_amount']?.toString() ?? '0') ?? 0.0,
-      newAmount: json['new_amount'] is num ? (json['new_amount'] as num).toDouble() : double.tryParse(json['new_amount']?.toString() ?? '0') ?? 0.0,
-      difference: json['difference'] is num ? (json['difference'] as num).toDouble() : double.tryParse(json['difference']?.toString() ?? '0') ?? 0.0,
-      direction: json['direction']?.toString() ?? 'equal',
-      refundChannel: json['refund_channel']?.toString(),
+      oldDate: json['from_date']?.toString() ?? '',
+      newDate: json['to_date']?.toString() ?? '',
+      oldSlotCount: 0,
+      newSlotCount: newSlotCount,
+      oldAmount: toDouble(json['old_amount']),
+      newAmount: toDouble(json['new_amount']),
+      difference: toDouble(json['price_difference']),
+      direction: directionBySettlement[json['settlement_type']?.toString()] ?? 'equal',
+      refundChannel: channelByServer[json['refund_channel']?.toString()],
       message: json['message']?.toString() ?? '',
     );
   }
@@ -91,17 +107,18 @@ class ApiService {
     String? token,
   }) async {
     final authToken = await _resolveToken(token);
-    final uri = Uri.parse('${ApiClient.baseUrl}/booking-dates/$bookingDateId/reschedule-slots?date=$date');
+    final uri = Uri.parse('${ApiClient.baseUrl}/booking-dates/$bookingDateId/reschedule/slots?date=$date');
     final response = await ApiClient.get(uri, headers: ApiClient.authHeaders(authToken));
 
     final data = jsonDecode(response.body);
-    if (response.statusCode == 200 && data['success'] == true) {
+    // The slots endpoint returns {slots, reschedules_used, reschedules_allowed, is_reschedule_active}
+    // with no 'success' flag, so a 200 is the success signal.
+    if (response.statusCode == 200) {
       final List rawSlots = data['slots'] ?? [];
       final slots = rawSlots.map((s) => RescheduleSlot.fromJson(s as Map<String, dynamic>)).toList();
       return {
         'success': true,
         'slots': slots,
-        'is_same_date': data['is_same_date'] == true,
         'message': data['message'] ?? '',
       };
     } else {
@@ -121,7 +138,7 @@ class ApiService {
     String? token,
   }) async {
     final authToken = await _resolveToken(token);
-    final uri = Uri.parse('${ApiClient.baseUrl}/booking-dates/$bookingDateId/reschedule-preview');
+    final uri = Uri.parse('${ApiClient.baseUrl}/booking-dates/$bookingDateId/reschedule/preview');
     final response = await ApiClient.post(
       uri,
       headers: ApiClient.authHeaders(authToken),
@@ -133,10 +150,9 @@ class ApiService {
 
     final data = jsonDecode(response.body);
     if (response.statusCode == 200 && data['success'] == true) {
-      final previewData = data['preview'] is Map<String, dynamic> ? data['preview'] : data;
       return {
         'success': true,
-        'preview': ReschedulePreview.fromJson(previewData as Map<String, dynamic>),
+        'preview': ReschedulePreview.fromJson(data as Map<String, dynamic>, newSlotCount: slotIds.length),
       };
     } else {
       return {
