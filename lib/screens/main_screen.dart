@@ -25,6 +25,9 @@ import 'main/profile_tab.dart';
 import 'main/support_tab.dart';
 import 'map_picker_screen.dart';
 import 'turf_detail_screen.dart';
+import '../core/profile_service.dart';
+import '../widgets/change_password_bottom_sheet.dart';
+import '../widgets/edit_profile_bottom_sheet.dart';
 import '../widgets/record_payment_dialog.dart';
 
 class MainScreen extends StatefulWidget {
@@ -1142,297 +1145,56 @@ class _MainScreenState extends State<MainScreen> {
 
   // --- API OPERATIONS ---
 
-  Future<void> _handleUpdateProfile(String name, String email, String mobile) async {
-    setState(() => _profileLoading = true);
-
-    try {
-      final response = await ApiClient.put(
-        Uri.parse('${ApiClient.baseUrl}/user/profile'),
-        headers: ApiClient.authHeaders(widget.token),
-        body: jsonEncode({
-          'name': name.trim(),
-          'email': email.trim(),
-          'mobile': mobile.trim(),
-        }),
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        widget.onProfileUpdated(name, email, mobile);
-        _showSuccess('Profile details updated successfully.');
-      } else {
-        _showError(data['message'] ?? 'Failed to update profile.');
-      }
-    } catch (e) {
-      _showError('Network error. Please try again.');
-    } finally {
-      setState(() => _profileLoading = false);
-    }
-  }
-
-  Future<void> _handleChangePassword(String currentPassword, String newPassword, String confirmPassword) async {
-    setState(() => _profileLoading = true);
-
-    try {
-      final response = await ApiClient.put(
-        Uri.parse('${ApiClient.baseUrl}/user/password'),
-        headers: ApiClient.authHeaders(widget.token),
-        body: jsonEncode({
-          'current_password': currentPassword,
-          'password': newPassword,
-          'password_confirmation': confirmPassword,
-        }),
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        _showSuccess('Password updated successfully.');
-      } else {
-        _showError(data['message'] ?? 'Failed to change password.');
-      }
-    } catch (e) {
-      _showError('Network error. Please try again.');
-    } finally {
-      setState(() => _profileLoading = false);
-    }
-  }
-
   Future<void> _handleDeleteAccount() async {
     setState(() => _profileLoading = true);
 
-    try {
-      final response = await ApiClient.delete(
-        Uri.parse('${ApiClient.baseUrl}/user'),
-        headers: ApiClient.authHeaders(widget.token),
-      );
+    final result = await ProfileService.deleteAccount(widget.token);
+    if (!mounted) return;
 
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        widget.onLogout();
-        _showSuccess('Your account has been deleted successfully.');
-      } else {
-        _showError(data['message'] ?? 'Failed to delete account.');
-      }
-    } catch (e) {
-      _showError('Network error. Please try again.');
-    } finally {
-      setState(() => _profileLoading = false);
+    setState(() => _profileLoading = false);
+    if (result.success) {
+      widget.onLogout();
+      _showSuccess(result.message);
+    } else {
+      _showError(result.message);
     }
   }
 
   // --- ACTIONS SHEETS / DIALOGS ---
 
   void _showEditProfileBottomSheet() {
-    final nameController = TextEditingController(text: widget.userName);
-    final emailController = TextEditingController(text: widget.userEmail);
-    final mobileController = TextEditingController(text: widget.userMobile);
-    final formKey = GlobalKey<FormState>();
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 24,
-            // viewInsets.bottom clears the keyboard; padding.bottom clears the device's
-            // system nav bar / gesture bar, which sits underneath modal bottom sheets.
-            bottom: MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom + 24,
-          ),
-          child: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Edit Personal Details',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name',
-                      prefixIcon: Icon(Icons.person_outline),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                    ),
-                    validator: (value) => value == null || value.trim().isEmpty ? 'Please enter your name' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email Address',
-                      prefixIcon: Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                    ),
-                    validator: (value) => value == null || value.trim().isEmpty ? 'Please enter email' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: mobileController,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                      labelText: 'Mobile Number',
-                      prefixIcon: Icon(Icons.phone_outlined),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                    ),
-                    validator: (value) => value == null || value.trim().isEmpty ? 'Please enter mobile number' : null,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () {
-                      if (formKey.currentState!.validate()) {
-                        Navigator.pop(context);
-                        _handleUpdateProfile(
-                          nameController.text,
-                          emailController.text,
-                          mobileController.text,
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+      builder: (context) => EditProfileBottomSheet(
+        token: widget.token,
+        initialName: widget.userName,
+        initialEmail: widget.userEmail,
+        initialMobile: widget.userMobile,
+        onSuccess: (name, email, mobile) {
+          widget.onProfileUpdated(name, email, mobile);
+          _showSuccess('Profile details updated successfully.');
+        },
+      ),
     );
   }
 
   void _showChangePasswordBottomSheet() {
-    final currentPasswordController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 24,
-            // viewInsets.bottom clears the keyboard; padding.bottom clears the device's
-            // system nav bar / gesture bar, which sits underneath modal bottom sheets.
-            bottom: MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom + 24,
-          ),
-          child: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Change Password',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: currentPasswordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Current Password',
-                      prefixIcon: Icon(Icons.lock_outline),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                    ),
-                    validator: (value) => value == null || value.isEmpty ? 'Please enter current password' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: newPasswordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'New Password',
-                      prefixIcon: Icon(Icons.lock_outline),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                    ),
-                    validator: (value) => value == null || value.isEmpty || value.length < 6 ? 'Password must be at least 6 characters' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: confirmPasswordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Confirm New Password',
-                      prefixIcon: Icon(Icons.lock_outline),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return 'Confirm your new password';
-                      if (value != newPasswordController.text) return 'Passwords do not match';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () {
-                      if (formKey.currentState!.validate()) {
-                        Navigator.pop(context);
-                        _handleChangePassword(
-                          currentPasswordController.text,
-                          newPasswordController.text,
-                          confirmPasswordController.text,
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('Update Password', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+      builder: (context) => ChangePasswordBottomSheet(
+        token: widget.token,
+        onSuccess: () {
+          _showSuccess('Password updated successfully.');
+        },
+      ),
     );
   }
 
