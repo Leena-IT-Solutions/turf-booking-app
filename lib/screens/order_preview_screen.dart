@@ -639,9 +639,12 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
 
     if (!_bookOnBehalf && (_paymentMethod == 'razorpay_full' || _paymentMethod == 'razorpay_part')) {
       String? razorpayOrderId;
-      String keyToUse = _razorpayKey ?? 'rzp_test_5yX1f8e1F8e1F8';
+      String? keyToUse = _razorpayKey;
+      String? orderError;
 
-      // Pre-create Razorpay Order via backend
+      // Create the Razorpay order on the server first. The server only accepts a payment made
+      // against one of its own orders, so never open checkout without one -- the player would be
+      // charged and the booking refused.
       try {
         final orderRes = await ApiClient.post(
           Uri.parse('${ApiClient.baseUrl}/turfs/${widget.turf.id}/bookings/order'),
@@ -651,17 +654,32 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
             'currency': 'INR',
           }),
         );
-        if (orderRes.statusCode == 200) {
-          final orderData = jsonDecode(orderRes.body);
+        final orderData = jsonDecode(orderRes.body);
+        if (orderRes.statusCode == 200 && orderData is Map) {
           if (orderData['order_id'] != null) {
             razorpayOrderId = orderData['order_id'].toString();
           }
           if (orderData['key'] != null && orderData['key'].toString().isNotEmpty) {
             keyToUse = orderData['key'].toString();
           }
+        } else if (orderData is Map && orderData['message'] != null) {
+          orderError = orderData['message'].toString();
         }
       } catch (e) {
         debugPrint('Could not create Razorpay order: $e');
+      }
+
+      if (razorpayOrderId == null || razorpayOrderId.isEmpty || keyToUse == null || keyToUse.isEmpty) {
+        if (mounted) {
+          setState(() => _submittingBooking = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(orderError ?? 'Could not start the payment. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
       }
 
       final options = {
@@ -669,8 +687,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
         'amount': (_payableNowAmount * 100).toInt(),
         'name': widget.turf.name.isNotEmpty ? widget.turf.name : 'Turf Booking',
         'description': 'Booking for ${widget.turf.name}',
-        if (razorpayOrderId != null && razorpayOrderId.isNotEmpty)
-          'order_id': razorpayOrderId,
+        'order_id': razorpayOrderId,
         'prefill': {
           'contact': _userMobile.isNotEmpty ? _userMobile : '9999999999',
           'email': _userEmail.isNotEmpty ? _userEmail : 'user@example.com',

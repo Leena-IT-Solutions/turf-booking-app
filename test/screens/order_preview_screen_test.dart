@@ -217,6 +217,38 @@ void main() {
           )).called(1);
     });
 
+    testWidgets('does not open checkout when the server cannot create a payment order', (WidgetTester tester) async {
+      setTestScreenSize(tester);
+      setupDefaultMocks();
+
+      when(() => mockClient.post(
+            Uri.parse('${ApiClient.baseUrl}/turfs/1/bookings/order'),
+            headers: any(named: 'headers'),
+            body: any(named: 'body'),
+          )).thenAnswer((_) async => http.Response(
+            jsonEncode({'message': 'Online payments are temporarily unavailable.'}),
+            500,
+          ));
+
+      await tester.pumpWidget(buildTestableScreen());
+      await tester.pumpAndSettle();
+
+      final payConfirmBtn = find.text('Pay & Confirm');
+      await tester.ensureVisible(payConfirmBtn);
+      await tester.tap(payConfirmBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Online payments are temporarily unavailable.'), findsOneWidget);
+      // No booking request is sent without a payment.
+      verifyNever(() => mockClient.post(
+            Uri.parse('${ApiClient.baseUrl}/turfs/1/bookings'),
+            headers: any(named: 'headers'),
+            body: any(named: 'body'),
+          ));
+      // The button is usable again.
+      expect(find.text('Pay & Confirm'), findsOneWidget);
+    });
+
     testWidgets('applies coupon successfully and updates preview discount', (WidgetTester tester) async {
       setTestScreenSize(tester);
       setupDefaultMocks();
