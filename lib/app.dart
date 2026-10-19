@@ -251,6 +251,30 @@ class _MyAppState extends State<MyApp> {
       // theme removes that scrim entirely, independent of any padding math.
       builder: (context, child) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isDesktopOrTablet = screenWidth > 600;
+
+        Widget appWidget = child!;
+        if (isDesktopOrTablet) {
+          appWidget = Container(
+            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFE2E8F0),
+            alignment: Alignment.center,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 480),
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.12),
+                    blurRadius: 24,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: child,
+            ),
+          );
+        }
+
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
@@ -259,7 +283,7 @@ class _MyAppState extends State<MyApp> {
             systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
             systemNavigationBarDividerColor: Colors.transparent,
           ),
-          child: child!,
+          child: appWidget,
         );
       },
       home: _token != null
