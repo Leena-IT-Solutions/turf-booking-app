@@ -844,9 +844,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
       body: (_configLoading || (_previewLoading && _previewData == null))
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              // Bottom padding also clears the device's system nav bar / gesture bar, so
-              // the "Pay & Confirm" button at the end of this scroll view isn't hidden under it.
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1738,10 +1736,27 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
-
-                  // Confirm button
-                  SizedBox(
+                ],
+              ),
+            ),
+      bottomNavigationBar: (_configLoading || (_previewLoading && _previewData == null))
+          ? null
+          : Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _submittingBooking ? null : _processBookingFlow,
@@ -1768,7 +1783,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                             ),
                     ),
                   ),
-                ],
+                ),
               ),
             ),
     );

@@ -1094,63 +1094,66 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
           ),
         ],
       ),
-      bottomSheet: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 10,
-              offset: const Offset(0, -5),
+              offset: const Offset(0, -4),
             ),
           ],
         ),
         child: SafeArea(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Price starts from', style: TextStyle(color: Colors.grey, fontSize: 11)),
-                  const SizedBox(height: 2),
-                  Text(
-                    price,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  final navigator = Navigator.of(context);
-                  final result = await navigator.push(
-                    MaterialPageRoute(
-                      builder: (context) => TurfBookingScreen(
-                        turf: _turf,
-                        token: widget.token,
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Price starts from', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const SizedBox(height: 2),
+                    Text(
+                      price,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        color: theme.colorScheme.primary,
                       ),
                     ),
-                  );
-                  if ((result == 'show_bookings' || result == 'show_client_bookings') && mounted) {
-                    navigator.pop(result);
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
+                  ],
                 ),
-                child: const Text('Book Now', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
+                ElevatedButton(
+                  onPressed: () async {
+                    final navigator = Navigator.of(context);
+                    final result = await navigator.push(
+                      MaterialPageRoute(
+                        builder: (context) => TurfBookingScreen(
+                          turf: _turf,
+                          token: widget.token,
+                        ),
+                      ),
+                    );
+                    if ((result == 'show_bookings' || result == 'show_client_bookings') && mounted) {
+                      navigator.pop(result);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Book Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
           ),
         ),
       ),
