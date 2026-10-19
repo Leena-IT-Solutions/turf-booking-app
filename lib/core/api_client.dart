@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -11,6 +12,17 @@ class ApiClient {
   static const String baseUrl = 'https://turf.infoleena.com/api';
 
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+  /// Formats an image URL to work cleanly across mobile and web platforms.
+  /// On web during local testing or PWA, routes /storage/... relative to window/proxy
+  /// to ensure CORS compliance and avoid canvas-tainting errors.
+  static String formatImageUrl(String? url) {
+    if (url == null || url.isEmpty) return '';
+    if (kIsWeb && url.startsWith('https://turf.infoleena.com/storage/')) {
+      return url.replaceFirst('https://turf.infoleena.com', '');
+    }
+    return url;
+  }
 
   /// Callback invoked whenever an API response returns 401 Unauthorized.
   /// Used by the root app to automatically clear local storage and route to AuthScreen.

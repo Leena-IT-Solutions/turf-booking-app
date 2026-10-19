@@ -218,7 +218,7 @@ class _TurfDetailScreenState extends State<TurfDetailScreen> {
                       itemCount: imageUrls.length,
                       itemBuilder: (context, index) {
                         return Image.network(
-                          imageUrls[index],
+                          ApiClient.formatImageUrl(imageUrls[index]),
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) => Container(
                             color: theme.colorScheme.primary.withValues(alpha: 0.1),

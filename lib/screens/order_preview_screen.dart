@@ -859,7 +859,7 @@ class _OrderPreviewScreenState extends State<OrderPreviewScreen> {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: Image.network(
-                                widget.turf.imageUrl!,
+                                ApiClient.formatImageUrl(widget.turf.imageUrl!),
                                 width: 70,
                                 height: 70,
                                 fit: BoxFit.cover,

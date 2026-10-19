@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../core/api_client.dart';
 
 /// Renders icons from the database (keyword, emoji, SVG, or image URL)
 /// with fallbacks mapped to database seed and admin definitions.
@@ -112,7 +113,7 @@ class DbIconWidget extends StatelessWidget {
           colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
         );
       }
-      return Image.network(trimmed, width: size, height: size);
+      return Image.network(ApiClient.formatImageUrl(trimmed), width: size, height: size);
     }
 
     // 3. Emoji or Unicode symbol (e.g. 🛋️, 🤼, 🏸, 🏓, 🔴, 🔵, 🎾, 📐, 🏐, 🥅)

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/api_client.dart';
 import '../../models/turf.dart';
 
 /// The "Home" tab: location header, image slider, and the searchable/
@@ -93,7 +94,7 @@ class HomeTab extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       Image.network(
-                        slide['image_url'],
+                        ApiClient.formatImageUrl(slide['image_url']),
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
@@ -198,7 +199,7 @@ class HomeTab extends StatelessWidget {
                 height: 122,
                 child: imageUrl != null && imageUrl.isNotEmpty
                     ? Image.network(
-                        imageUrl,
+                        ApiClient.formatImageUrl(imageUrl),
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => Container(
                           color: theme.colorScheme.primary.withValues(alpha: 0.1),
