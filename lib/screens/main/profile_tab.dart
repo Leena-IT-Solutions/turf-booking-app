@@ -24,6 +24,16 @@ class ProfileTab extends StatelessWidget {
     required this.onDeleteAccount,
   });
 
+  bool get _isProtectedAccount {
+    final email = userEmail.trim().toLowerCase();
+    if (email == 'sandeep198558@yahoo.com' || email == 'sandeep198558@gmail.com') {
+      return true;
+    }
+    final digits = userMobile.replaceAll(RegExp(r'[^0-9]'), '');
+    final last10 = digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+    return last10 == '9664588677';
+  }
+
   Future<void> _launchPolicyUrl(String urlString) async {
     final uri = Uri.parse(urlString);
     try {
@@ -267,15 +277,16 @@ class ProfileTab extends StatelessWidget {
             iconColor: Colors.amber[700]!,
             onTap: onChangePassword,
           ),
-          // Delete account action
-          _buildSettingsTile(
-            context,
-            icon: Icons.delete_forever,
-            title: 'Delete My Account',
-            subtitle: 'Permanently close and delete your credentials',
-            iconColor: Colors.red,
-            onTap: onDeleteAccount,
-          ),
+          // Delete account action (hidden for protected master account)
+          if (!_isProtectedAccount)
+            _buildSettingsTile(
+              context,
+              icon: Icons.delete_forever,
+              title: 'Delete My Account',
+              subtitle: 'Permanently close and delete your credentials',
+              iconColor: Colors.red,
+              onTap: onDeleteAccount,
+            ),
           const SizedBox(height: 24),
           // Legal & Policies Section
           Align(

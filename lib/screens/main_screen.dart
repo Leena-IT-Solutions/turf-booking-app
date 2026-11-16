@@ -1199,7 +1199,21 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  bool get _isProtectedAccount {
+    final email = widget.userEmail.trim().toLowerCase();
+    if (email == 'sandeep198558@yahoo.com' || email == 'sandeep198558@gmail.com') {
+      return true;
+    }
+    final digits = widget.userMobile.replaceAll(RegExp(r'[^0-9]'), '');
+    final last10 = digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+    return last10 == '9664588677';
+  }
+
   void _showDeleteAccountDialog() {
+    if (_isProtectedAccount) {
+      _showError('This master administrator account is protected and cannot be deleted.');
+      return;
+    }
     showDialog(
       context: context,
       builder: (BuildContext context) {
