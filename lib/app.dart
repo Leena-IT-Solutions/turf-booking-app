@@ -80,28 +80,38 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _checkLoginStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('access_token');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
 
-    if (token == null || token.isEmpty) {
+      if (token == null || token.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _token = null;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // Immediately unlock the UI using cached credentials so startup is instant,
+      // then validate and refresh the user profile against the backend.
       if (mounted) {
         setState(() {
-          _token = null;
+          _token = token;
+          _userName = prefs.getString('user_name');
+          _userEmail = prefs.getString('user_email');
+          _userMobile = prefs.getString('user_mobile');
           _isLoading = false;
         });
       }
-      return;
-    }
 
-    // Validate stored token against the backend
-    try {
       final response = await ApiClient.get(
         Uri.parse('${ApiClient.baseUrl}/user'),
         headers: ApiClient.authHeaders(token),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 401) {
-        // Token is invalid/expired (e.g. fresh database reset)
         await prefs.clear();
         if (mounted) {
           setState(() {
@@ -130,21 +140,26 @@ class _MyAppState extends State<MyApp> {
           }
         }
       }
+
+      if (mounted) {
+        setState(() {
+          _token = prefs.getString('access_token');
+          _userName = prefs.getString('user_name');
+          _userEmail = prefs.getString('user_email');
+          _userMobile = prefs.getString('user_mobile');
+          _isLoading = false;
+        });
+
+        if (_token != null && _token!.isNotEmpty) {
+          _registerDeviceToken(_token!);
+        }
+      }
     } catch (_) {
-      // Network/offline error: proceed with cached credentials
-    }
-
-    if (mounted) {
-      setState(() {
-        _token = prefs.getString('access_token');
-        _userName = prefs.getString('user_name');
-        _userEmail = prefs.getString('user_email');
-        _userMobile = prefs.getString('user_mobile');
-        _isLoading = false;
-      });
-
-      if (_token != null && _token!.isNotEmpty) {
-        _registerDeviceToken(_token!);
+      // Never leave the app stuck on the loading spinner if SharedPreferences or network throws
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
