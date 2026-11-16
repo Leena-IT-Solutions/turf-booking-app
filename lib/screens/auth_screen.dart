@@ -5,22 +5,46 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/snackbar_helper.dart';
+import '../models/turf.dart';
 
 enum AuthState { login, regMobile, regOtp, regProfile, regPassword, forgotRequest, forgotVerify, forgotReset }
 
 class AuthScreen extends StatefulWidget {
   final Function(String, Map<String, dynamic>) onLoginSuccess;
+  final bool startOnRegister;
+  final Turf? pendingTurf;
 
-  const AuthScreen({super.key, required this.onLoginSuccess});
+  const AuthScreen({
+    super.key,
+    required this.onLoginSuccess,
+    this.startOnRegister = false,
+    this.pendingTurf,
+  });
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  AuthState _state = AuthState.login;
+  late AuthState _state;
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _state = widget.startOnRegister ? AuthState.regMobile : AuthState.login;
+  }
+
+  @override
+  void didUpdateWidget(covariant AuthScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.startOnRegister && !oldWidget.startOnRegister && _state == AuthState.login) {
+      setState(() {
+        _state = AuthState.regMobile;
+      });
+    }
+  }
 
 
   // Form Keys
@@ -357,7 +381,30 @@ class _AuthScreenState extends State<AuthScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _buildLogoHeader(),
-                const SizedBox(height: 32),
+                if (widget.pendingTurf != null) ...[
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.qr_code_scanner, color: Color(0xFF10B981), size: 22),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Create your account or sign in to book ${widget.pendingTurf!.name} (${widget.pendingTurf!.locationName})',
+                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 28),
                 if (_state == AuthState.login) _buildLoginForm(theme, isDark),
                 if (_state == AuthState.regMobile) _buildRegMobileForm(theme, isDark),
                 if (_state == AuthState.regOtp) _buildRegOtpForm(theme, isDark),

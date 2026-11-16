@@ -5,9 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api_client.dart';
+import 'core/deep_link_service.dart';
 import 'core/notification_service.dart';
+import 'models/turf.dart';
 import 'screens/auth_screen.dart';
 import 'screens/main_screen.dart';
+import 'screens/turf_detail_screen.dart';
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -22,13 +25,54 @@ class _MyAppState extends State<MyApp> {
   String? _userName;
   String? _userEmail;
   String? _userMobile;
+  String? _pendingTurfCode;
+  Turf? _pendingTurf;
 
   @override
   void initState() {
     super.initState();
     NotificationService.initialize();
     ApiClient.onUnauthorized = _handleUnauthorized;
-    _checkLoginStatus();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    await _checkLoginStatus();
+    await DeepLinkService.initialize(onTurfCodeDetected: _handleTurfQrCode);
+  }
+
+  Future<void> _handleTurfQrCode(String code) async {
+    if (!mounted) return;
+    setState(() {
+      _pendingTurfCode = code;
+    });
+
+    final turf = await DeepLinkService.fetchTurfByCode(code, token: _token);
+    if (!mounted || turf == null) return;
+
+    setState(() {
+      _pendingTurf = turf;
+    });
+
+    // If user is already logged in, navigate straight to TurfDetailScreen
+    if (_token != null && _token!.isNotEmpty) {
+      await DeepLinkService.clearPendingTurfCode();
+      await DeepLinkService.reportAttribution(code, _token!);
+      setState(() {
+        _pendingTurfCode = null;
+        _pendingTurf = null;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final nav = ApiClient.navigatorKey.currentState;
+        if (nav != null) {
+          nav.push(
+            MaterialPageRoute(
+              builder: (_) => TurfDetailScreen(turf: turf, token: _token),
+            ),
+          );
+        }
+      });
+    }
   }
 
   void _handleUnauthorized() {
@@ -124,6 +168,32 @@ class _MyAppState extends State<MyApp> {
     });
 
     _registerDeviceToken(token);
+
+    // If the user scanned a Turf QR Code before registering/logging in, open that Turf immediately
+    final pendingCode = _pendingTurfCode ?? await DeepLinkService.getPendingTurfCode();
+    if (pendingCode != null && pendingCode.isNotEmpty) {
+      final turf = _pendingTurf ?? await DeepLinkService.fetchTurfByCode(pendingCode, token: token);
+      await DeepLinkService.clearPendingTurfCode();
+      await DeepLinkService.reportAttribution(pendingCode, token);
+      if (mounted) {
+        setState(() {
+          _pendingTurfCode = null;
+          _pendingTurf = null;
+        });
+      }
+      if (turf != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final nav = ApiClient.navigatorKey.currentState;
+          if (nav != null) {
+            nav.push(
+              MaterialPageRoute(
+                builder: (_) => TurfDetailScreen(turf: turf, token: token),
+              ),
+            );
+          }
+        });
+      }
+    }
   }
 
   Future<void> _registerDeviceToken(String token) async {
@@ -295,7 +365,11 @@ class _MyAppState extends State<MyApp> {
               onLogout: () => _onLogout(isUnauthorized: false),
               onProfileUpdated: _onProfileUpdated,
             )
-          : AuthScreen(onLoginSuccess: _onLoginSuccess),
+          : AuthScreen(
+              onLoginSuccess: _onLoginSuccess,
+              startOnRegister: _pendingTurfCode != null,
+              pendingTurf: _pendingTurf,
+            ),
     );
   }
 }

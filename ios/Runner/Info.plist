@@ -74,5 +74,20 @@
 		<string>We need your location to show and search turf grounds near your current city.</string>
 		<key>NSLocationAlwaysUsageDescription</key>
 		<string>We need your location to show and search turf grounds near your current city.</string>
+		<key>FlutterDeepLinkingEnabled</key>
+		<false/>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>com.infoleena.turf.booking</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>turfbooking</string>
+				</array>
+			</dict>
+		</array>
 	</dict>
 </plist>
