@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
@@ -15,6 +16,9 @@ class NotificationService {
   static final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
+  static Future<void>? _initFuture;
+  static Future<LocationPermission>? _locationPermissionFuture;
+
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'turf_booking_notifications',
     'Turf Booking Notifications',
@@ -25,8 +29,37 @@ class NotificationService {
   /// Callback when a user taps a booking-related notification
   static void Function(String bookingId)? onNavigateToBooking;
 
-  /// Initialize Firebase Messaging and local notifications
-  static Future<void> initialize() async {
+  /// Initialize Firebase Messaging and local notifications (idempotent)
+  static Future<void> initialize() {
+    return _initFuture ??= _doInitialize();
+  }
+
+  /// Ensures notification permission dialog has completed first, then requests
+  /// location permission sequentially so Android/iOS never drops the location prompt.
+  static Future<LocationPermission> ensureLocationPermission() {
+    return _locationPermissionFuture ??= _doEnsureLocationPermission().whenComplete(() {
+      _locationPermissionFuture = null;
+    });
+  }
+
+  static Future<LocationPermission> _doEnsureLocationPermission() async {
+    try {
+      await initialize();
+      // Give Android's GrantPermissionsActivity a brief moment to finish closing
+      // before launching the next runtime permission dialog.
+      await Future.delayed(const Duration(milliseconds: 350));
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      return permission;
+    } catch (_) {
+      return LocationPermission.denied;
+    }
+  }
+
+  static Future<void> _doInitialize() async {
     try {
       // 1. Request notification permissions (iOS & Android 13+)
       await FirebaseMessaging.instance.requestPermission(

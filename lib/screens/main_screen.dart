@@ -551,8 +551,9 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
+      LocationPermission permission = await NotificationService.ensureLocationPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         if (mounted) {
           setState(() {
             _isLocating = false;
@@ -562,21 +563,8 @@ class _MainScreenState extends State<MainScreen> {
         return;
       }
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          if (mounted) {
-            setState(() {
-              _isLocating = false;
-              _selectedCity = 'Mumbai';
-            });
-          }
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
         if (mounted) {
           setState(() {
             _isLocating = false;

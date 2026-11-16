@@ -31,12 +31,16 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    NotificationService.initialize();
     ApiClient.onUnauthorized = _handleUnauthorized;
     _initializeApp();
   }
 
   Future<void> _initializeApp() async {
+    // 1. Sequentially request Notification and Location permissions so Android/iOS
+    // never drops the Location permission dialog due to overlapping dialogs.
+    NotificationService.ensureLocationPermission();
+
+    // 2. Unlock UI and initialize deep links concurrently
     await _checkLoginStatus();
     await DeepLinkService.initialize(onTurfCodeDetected: _handleTurfQrCode);
   }
