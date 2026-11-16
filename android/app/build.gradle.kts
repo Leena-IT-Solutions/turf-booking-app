@@ -65,3 +65,11 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
+
+// Ensure mergeReleaseAssets directory exists for Gradle 9.1 PerModuleBundleTask input validation
+layout.buildDirectory.dir("intermediates/assets/release/mergeReleaseAssets").get().asFile.mkdirs()
+tasks.matching { it.name == "mergeReleaseAssets" || it.name == "copyFlutterAssetsRelease" }.configureEach {
+    doLast {
+        layout.buildDirectory.dir("intermediates/assets/release/mergeReleaseAssets").get().asFile.mkdirs()
+    }
+}
