@@ -114,4 +114,38 @@ class ProfileService {
       );
     }
   }
+
+  static Future<ProfileResult> updateNotificationPreferences(
+    String token, {
+    required bool promoNotificationsEnabled,
+  }) async {
+    try {
+      final response = await ApiClient.patch(
+        Uri.parse('${ApiClient.baseUrl}/user/notification-preferences'),
+        headers: ApiClient.authHeaders(token),
+        body: jsonEncode({
+          'promo_notifications_enabled': promoNotificationsEnabled,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return ProfileResult(
+          success: true,
+          message: data['message'] ?? 'Notification preferences updated.',
+        );
+      } else {
+        return ProfileResult(
+          success: false,
+          message: data['message'] ?? 'Failed to update notification preferences.',
+        );
+      }
+    } catch (e) {
+      return const ProfileResult(
+        success: false,
+        message: 'Network error. Please try again.',
+      );
+    }
+  }
 }

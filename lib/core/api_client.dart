@@ -65,6 +65,12 @@ class ApiClient {
     return checkResponse(response);
   }
 
+  /// Convenience PATCH with automatic 401 check
+  static Future<http.Response> patch(Uri url, {Map<String, String>? headers, Object? body, Encoding? encoding}) async {
+    final response = await client.patch(url, headers: headers, body: body, encoding: encoding);
+    return checkResponse(response);
+  }
+
   /// Convenience DELETE with automatic 401 check
   static Future<http.Response> delete(Uri url, {Map<String, String>? headers, Object? body, Encoding? encoding}) async {
     final response = await client.delete(url, headers: headers, body: body, encoding: encoding);

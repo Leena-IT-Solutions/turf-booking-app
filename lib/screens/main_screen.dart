@@ -56,6 +56,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0; // 0: Home, 1: Bookings, 2: Support, 3: Profile
   bool _profileLoading = false;
+  bool _promoNotificationsEnabled = true;
   List<String> _userRoles = [];
   List<String> _manageableTurfIds = [];
 
@@ -64,9 +65,11 @@ class _MainScreenState extends State<MainScreen> {
     if (mounted) {
       final roles = prefs.getStringList('user_roles') ?? [];
       final manageableTurfs = prefs.getStringList('manageable_turf_ids') ?? [];
+      final promoPref = prefs.getBool('promo_notifications_enabled') ?? true;
       setState(() {
         _userRoles = roles;
         _manageableTurfIds = manageableTurfs;
+        _promoNotificationsEnabled = promoPref;
       });
       final isManagerOrAdmin = roles.any((r) =>
           r == 'turf-admin' || r == 'turf-manager' || r == 'saas-admin' || r == 'admin');
@@ -93,6 +96,12 @@ class _MainScreenState extends State<MainScreen> {
           if (data['email'] != null) await prefs.setString('user_email', data['email']);
           if (data['mobile'] != null) await prefs.setString('user_mobile', data['mobile']);
 
+          bool updatedPromo = _promoNotificationsEnabled;
+          if (data['promo_notifications_enabled'] != null) {
+            updatedPromo = data['promo_notifications_enabled'] == true;
+            await prefs.setBool('promo_notifications_enabled', updatedPromo);
+          }
+
           List<String> updatedRoles = _userRoles;
           if (data['roles'] != null) {
             updatedRoles = List<String>.from((data['roles'] as List)
@@ -112,6 +121,7 @@ class _MainScreenState extends State<MainScreen> {
             setState(() {
               _userRoles = updatedRoles;
               _manageableTurfIds = updatedTurfIds;
+              _promoNotificationsEnabled = updatedPromo;
             });
             final isManagerOrAdmin = updatedRoles.any((r) =>
                 r == 'turf-admin' || r == 'turf-manager' || r == 'saas-admin' || r == 'admin');
@@ -408,6 +418,96 @@ class _MainScreenState extends State<MainScreen> {
         _fetchClientBookings();
       }
     };
+
+    NotificationService.registerTapHandler(_handleNotificationRoute);
+  }
+
+  void _handleNotificationRoute(NotificationRoute route) {
+    if (!mounted) return;
+
+    // Pop any pushed screens back to MainScreen first
+    ApiClient.navigatorKey.currentState?.popUntil((r) => r.isFirst);
+
+    final hasStaffOrAdmin = _userRoles.any((r) =>
+        r == 'turf-admin' ||
+        r == 'turf-manager' ||
+        r == 'manager' ||
+        r == 'turf-staff' ||
+        r == 'saas-admin' ||
+        r == 'admin');
+
+    switch (route.target) {
+      case NotificationRouteTarget.bookings:
+        setState(() => _currentIndex = 1);
+        _fetchBookings(refresh: true);
+        break;
+
+      case NotificationRouteTarget.clientBookings:
+        setState(() => _currentIndex = hasStaffOrAdmin ? 4 : 1);
+        if (hasStaffOrAdmin) {
+          _fetchClientBookings();
+        } else {
+          _fetchBookings(refresh: true);
+        }
+        break;
+
+      case NotificationRouteTarget.support:
+        setState(() {
+          _currentIndex = 2;
+          _showChatWindow = true;
+        });
+        _fetchSupportMessages();
+        _ensureChatPolling();
+        break;
+
+      case NotificationRouteTarget.turfDetail:
+        if (route.turfId != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _openTurfById(route.turfId!);
+            }
+          });
+        }
+        break;
+
+      case NotificationRouteTarget.dashboard:
+        setState(() => _currentIndex = hasStaffOrAdmin ? 5 : 1);
+        if (hasStaffOrAdmin) {
+          _fetchDashboardStats();
+        } else {
+          _fetchBookings(refresh: true);
+        }
+        break;
+
+      case NotificationRouteTarget.none:
+        break;
+    }
+  }
+
+  Future<void> _handleTogglePromoNotifications(bool enabled) async {
+    final previous = _promoNotificationsEnabled;
+    setState(() => _promoNotificationsEnabled = enabled);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('promo_notifications_enabled', enabled);
+
+    final result = await ProfileService.updateNotificationPreferences(
+      widget.token,
+      promoNotificationsEnabled: enabled,
+    );
+
+    if (!mounted) return;
+    if (result.success) {
+      _showSuccess(
+        enabled
+            ? 'Offers & match reminders enabled.'
+            : 'Offers & match reminders muted.',
+      );
+    } else {
+      setState(() => _promoNotificationsEnabled = previous);
+      await prefs.setBool('promo_notifications_enabled', previous);
+      _showError(result.message);
+    }
   }
 
   void _startSliderTimer() {
@@ -1271,6 +1371,7 @@ class _MainScreenState extends State<MainScreen> {
     _sliderPageController?.dispose();
     _bookingsScrollController.dispose();
     NotificationService.onNavigateToBooking = null;
+    NotificationService.clearTapHandler();
     super.dispose();
   }
 
@@ -1584,6 +1685,8 @@ class _MainScreenState extends State<MainScreen> {
           userName: widget.userName,
           userEmail: widget.userEmail,
           userMobile: widget.userMobile,
+          promoNotificationsEnabled: _promoNotificationsEnabled,
+          onTogglePromoNotifications: _handleTogglePromoNotifications,
           onEditProfile: _showEditProfileBottomSheet,
           onChangePassword: _showChangePasswordBottomSheet,
           onDeleteAccount: _showDeleteAccountDialog,

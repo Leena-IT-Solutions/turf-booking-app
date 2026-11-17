@@ -10,6 +10,8 @@ class ProfileTab extends StatelessWidget {
   final String userName;
   final String userEmail;
   final String userMobile;
+  final bool promoNotificationsEnabled;
+  final ValueChanged<bool>? onTogglePromoNotifications;
   final VoidCallback onEditProfile;
   final VoidCallback onChangePassword;
   final VoidCallback onDeleteAccount;
@@ -19,6 +21,8 @@ class ProfileTab extends StatelessWidget {
     required this.userName,
     required this.userEmail,
     required this.userMobile,
+    this.promoNotificationsEnabled = true,
+    this.onTogglePromoNotifications,
     required this.onEditProfile,
     required this.onChangePassword,
     required this.onDeleteAccount,
@@ -276,6 +280,36 @@ class ProfileTab extends StatelessWidget {
             subtitle: 'Reset or secure your password details',
             iconColor: Colors.amber[700]!,
             onTap: onChangePassword,
+          ),
+          // Offers & Match Reminders notification opt-out toggle
+          Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.grey.withValues(alpha: 0.1)),
+            ),
+            child: SwitchListTile(
+              secondary: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.notifications_active_outlined, size: 20, color: Colors.deepPurple),
+              ),
+              title: const Text(
+                'Offers & Match Reminders',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              subtitle: const Text(
+                'Receive match reminders, review prompts, and coupon offers (booking & payment alerts are always sent)',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              value: promoNotificationsEnabled,
+              activeThumbColor: const Color(0xFF10B981),
+              onChanged: onTogglePromoNotifications,
+            ),
           ),
           // Delete account action (hidden for protected master account)
           if (!_isProtectedAccount)
