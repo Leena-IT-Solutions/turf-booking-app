@@ -6,3 +6,5 @@
 -keep class kotlin.Result$Failure { *; }
 -keep class kotlin.coroutines.Continuation { *; }
 -keep class kotlin.coroutines.intrinsics.** { *; }
+-keep class com.baseflow.geolocator.** { *; }
+-keep class com.dexterous.flutterlocalnotifications.** { *; }

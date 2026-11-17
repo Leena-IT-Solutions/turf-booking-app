@@ -45,13 +45,30 @@ class NotificationService {
   static Future<LocationPermission> _doEnsureLocationPermission() async {
     try {
       await initialize();
-      // Give Android's GrantPermissionsActivity a brief moment to finish closing
-      // before launching the next runtime permission dialog.
-      await Future.delayed(const Duration(milliseconds: 350));
+
+      // Wait until the app returns to the foreground (resumed) after the
+      // Notification permission dialog closes so Android never drops the second prompt.
+      for (int i = 0; i < 30; i++) {
+        final state = WidgetsBinding.instance.lifecycleState;
+        if (state == null || state == AppLifecycleState.resumed) {
+          break;
+        }
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      await Future.delayed(const Duration(milliseconds: 500));
 
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
+        final sw = Stopwatch()..start();
         permission = await Geolocator.requestPermission();
+        sw.stop();
+
+        // If Android aborted the request instantaneously (< 250ms) because the
+        // previous GrantPermissionsActivity was still animating closed, retry once.
+        if (permission == LocationPermission.denied && sw.elapsedMilliseconds < 250) {
+          await Future.delayed(const Duration(milliseconds: 700));
+          permission = await Geolocator.requestPermission();
+        }
       }
       return permission;
     } catch (_) {
